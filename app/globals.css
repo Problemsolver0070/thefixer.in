@@ -48,7 +48,7 @@ body {
 }
 
 .section-block {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,7 +60,7 @@ body {
 
 .hero-section {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -92,14 +92,14 @@ body {
 }
 
 .hero-logo-space {
-  width: 200px;
-  height: 200px;
+  width: min(200px, 50vw);
+  height: min(200px, 50vw);
   /* No visual — particles form the logo in 3D space at this approximate position */
 }
 
 .hero-scroll-indicator {
   position: absolute;
-  bottom: 2rem;
+  bottom: max(2rem, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   color: var(--color-celestial-dim);
@@ -118,6 +118,20 @@ body {
   50% {
     opacity: 0.9;
     stroke-dashoffset: -8;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reduced Motion                                                     */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-scroll-line {
+    animation: none;
+  }
+
+  .hero-edge-glow {
+    transition: none;
   }
 }
 

@@ -49,6 +49,7 @@ export default function LenisProvider({
         lerp: 0.1,
         duration: 1.2,
         smoothWheel: true,
+        touchMultiplier: 1.5,
       }}
     >
       <ScrollTriggerSync />
