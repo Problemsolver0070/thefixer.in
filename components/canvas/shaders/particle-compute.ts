@@ -25,7 +25,6 @@ import {
   min,
   clamp,
   mix,
-  select,
   hash,
 } from "three/tsl";
 
@@ -66,15 +65,15 @@ export function createParticleComputeShader(
     // Per-particle phase offset derived from index (deterministic)
     const phase = hash(idx).mul(6.2831);
 
-    // ---- Ambient drift (organic sine-wave movement) ----
-    const driftX = sin(add(uTime.mul(0.4), phase)).mul(uDriftSpeed);
-    const driftY = cos(add(uTime.mul(0.3), phase.mul(1.3))).mul(uDriftSpeed);
+    // ---- Ambient drift (organic sine-wave movement, scaled by deltaTime) ----
+    const driftX = sin(add(uTime.mul(0.4), phase)).mul(uDriftSpeed).mul(uDeltaTime);
+    const driftY = cos(add(uTime.mul(0.3), phase.mul(1.3))).mul(uDriftSpeed).mul(uDeltaTime);
     const driftZ = sin(add(uTime.mul(0.2), phase.mul(0.7))).mul(
       uDriftSpeed.mul(0.5),
-    );
+    ).mul(uDeltaTime);
     const driftForce = vec3(driftX, driftY, driftZ);
 
-    // ---- Mouse influence (gentle attraction) ----
+    // ---- Mouse influence (gentle attraction, scaled by deltaTime) ----
     const mousePos = vec3(uMouseX, uMouseY, float(0));
     const toMouse = sub(mousePos, pos);
     const mouseDist = max(length(toMouse), float(0.001));
@@ -84,7 +83,7 @@ export function createParticleComputeShader(
       float(0),
       float(0.01),
     );
-    const mouseForce = mul(normalize(toMouse), mouseStrength);
+    const mouseForce = mul(normalize(toMouse), mouseStrength).mul(uDeltaTime);
 
     // ---- Soft boundary (push particles back gently) ----
     const distFromCenter = max(length(pos), float(0.001));
@@ -111,8 +110,8 @@ export function createParticleComputeShader(
     );
     vel.assign(clampedVel);
 
-    // ---- Update position ----
-    pos.addAssign(vel);
+    // ---- Update position (scaled by deltaTime for frame-rate independence) ----
+    pos.addAssign(vel.mul(uDeltaTime));
   });
 
   return computeFn().compute(posBuffer.count);

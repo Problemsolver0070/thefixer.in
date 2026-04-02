@@ -9,8 +9,6 @@ import {
   Group,
 } from "three/webgpu";
 
-import { compute } from "three/tsl";
-
 import { PARTICLE_CONFIG } from "@/lib/theme";
 
 import {

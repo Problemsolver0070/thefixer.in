@@ -10,7 +10,6 @@ import {
   WebGPURenderer,
   RenderPipeline,
   Color,
-  Vector2,
 } from "three/webgpu";
 
 import { pass } from "three/tsl";
