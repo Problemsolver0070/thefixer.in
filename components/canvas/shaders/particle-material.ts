@@ -54,7 +54,6 @@ export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.015));
 const etherealBlue = new Color(COLORS.etherealBlue);
 const etherealGlow = new Color(COLORS.etherealGlow);
 const goldWarm = new Color(COLORS.goldWarm);
-const celestialDim = new Color(COLORS.celestialDim);
 
 /* ------------------------------------------------------------------ */
 /*  Create material                                                   */
@@ -70,6 +69,9 @@ export function createParticleMaterial(
 
   // Storage reference for reading positions in the fragment shader
   const posStorage = storage(posBuffer, "vec3", posBuffer.count);
+
+  // Tell the SpriteNodeMaterial where to place each sprite instance
+  material.positionNode = posStorage.toAttribute();
 
   // Per-particle deterministic randomness
   const particleHash = hash(instanceIndex);

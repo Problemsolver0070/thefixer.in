@@ -77,6 +77,19 @@ export default function CosmosCanvas() {
     const engine = new CosmosEngine(canvas);
     engineRef.current = engine;
 
+    // iOS requires DeviceOrientationEvent.requestPermission() inside
+    // a user gesture handler (touchstart/click). Hoist the handler so
+    // it can be cleaned up if the component unmounts before the gesture.
+    const requestGyro = async () => {
+      if (disposed) return;
+      const hasPermission = await requestOrientationPermission();
+      if (hasPermission && !disposed) {
+        window.addEventListener("deviceorientation", handleOrientation, {
+          passive: true,
+        });
+      }
+    };
+
     const bootstrap = async () => {
       try {
         await engine.init();
@@ -91,13 +104,8 @@ export default function CosmosCanvas() {
         window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
         window.addEventListener("resize", handleResize, { passive: true });
 
-        // Request device orientation on mobile
-        const hasPermission = await requestOrientationPermission();
-        if (hasPermission && !disposed) {
-          window.addEventListener("deviceorientation", handleOrientation, {
-            passive: true,
-          });
-        }
+        // Attach one-shot touchstart listener for iOS gyroscope permission
+        window.addEventListener("touchstart", requestGyro, { once: true });
       } catch (err) {
         console.error("[CosmosCanvas] Failed to initialise engine:", err);
       }
@@ -112,6 +120,7 @@ export default function CosmosCanvas() {
       window.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("deviceorientation", handleOrientation);
+      window.removeEventListener("touchstart", requestGyro);
 
       engine.dispose();
       engineRef.current = null;
