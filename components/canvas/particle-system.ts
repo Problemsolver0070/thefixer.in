@@ -249,16 +249,13 @@ export class ParticleSystem {
       if (seekStr > 0.01) {
         const i4 = i * 4;
         const tw = targetArray[i4 + 3]; // weight
-        if (tw > 0.5) {
+        if (tw > 0.001) {
           const tx = targetArray[i4];
           const ty = targetArray[i4 + 1];
           const tz = targetArray[i4 + 2];
-          const seekX = (tx - px) * seekStr * seekMag;
-          const seekY = (ty - py) * seekStr * seekMag;
-          const seekZ = (tz - pz) * seekStr * seekMag;
-          fx += seekX;
-          fy += seekY;
-          fz += seekZ;
+          fx += (tx - px) * seekStr * seekMag * tw;
+          fy += (ty - py) * seekStr * seekMag * tw;
+          fz += (tz - pz) * seekStr * seekMag * tw;
         }
       }
 
@@ -349,8 +346,8 @@ export class ParticleSystem {
   }
 
   setSeekStrength(strength: number): void {
-    this._seekStrength = strength;
-    uSeekStrength.value = strength;
+    this._seekStrength = Math.max(0, Math.min(1, strength));
+    uSeekStrength.value = this._seekStrength;
   }
 
   setLogoGlow(intensity: number): void {
