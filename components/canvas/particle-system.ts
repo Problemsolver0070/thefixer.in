@@ -42,6 +42,7 @@ import {
 export class ParticleSystem {
   readonly maxParticles: number;
   private _activeCount: number;
+  private _targetFloor: number = 0;
 
   /** GPU storage buffers (also readable as vertex attributes in WebGL2) */
   private posBuffer: StorageInstancedBufferAttribute;
@@ -291,7 +292,7 @@ export class ParticleSystem {
   /* ---------------------------------------------------------------- */
 
   setParticleCount(count: number): void {
-    this._activeCount = Math.max(1000, Math.min(count, this.maxParticles));
+    this._activeCount = Math.max(this._targetFloor || 1000, Math.min(count, this.maxParticles));
     if (this.sprite) {
       this.sprite.count = this._activeCount;
     }
@@ -299,6 +300,10 @@ export class ParticleSystem {
 
   getParticleCount(): number {
     return this._activeCount;
+  }
+
+  getTargetFloor(): number {
+    return this._targetFloor;
   }
 
   setMousePosition(x: number, y: number, influence: number): void {
@@ -343,6 +348,7 @@ export class ParticleSystem {
     }
 
     this.targetBuffer.needsUpdate = true;
+    this._targetFloor = logoPointCount;
   }
 
   setSeekStrength(strength: number): void {
