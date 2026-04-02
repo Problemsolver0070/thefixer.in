@@ -9,8 +9,8 @@
 - [x] **1. Viewport resize breaks particle text layout** ✅ Fixed in `90d6f6a`
   Base positions stored immutably; `setTargetsForPhase()` rescales via ratio on resize/orientationchange (200ms debounce). All three formations (crosshair, text, tagline) adapt to current viewport.
 
-- [ ] **2. Performance scaling can break text legibility**
-  `PerformanceMonitor` can scale `_activeCount` down to 10,000. But the combined text+tagline target uses 13,000 particles (8K text + 5K tagline on desktop). `sprite.count` is set to `_activeCount` — only particles with `index < sprite.count` render. If the monitor scales below 13K, the tagline vanishes. Below 8K, the title itself loses characters. No floor protects targeted particles.
+- [x] **2. Performance scaling can break text legibility** ✅ Fixed in `c6d0d99`
+  Dynamic `_targetFloor` in ParticleSystem ensures `_activeCount` never drops below the number of targeted particles. Floor updates per phase: 8K (logo/text), 13K (combined).
 
 - [ ] **3. Force-completing the intro on scroll is jarring**
   `HeroSection.tsx:296` — if the user scrolls during the intro and `progress > 0.03`, `intro.progress(1)` fires. This instant-completes a multi-second, multi-phase animation. Particles teleport to their final positions. Text snaps into existence. The entire cinematic moment is destroyed by a single scroll.
