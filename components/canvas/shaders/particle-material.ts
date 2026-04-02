@@ -47,6 +47,7 @@ import type { StorageInstancedBufferAttribute } from "three/webgpu";
 export const uMatTime = /* @__PURE__ */ uniform(float(0));
 export const uMatScrollProgress = /* @__PURE__ */ uniform(float(0));
 export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.04));
+export const uMatLogoGlow = /* @__PURE__ */ uniform(float(0));
 
 /* ------------------------------------------------------------------ */
 /*  Colors                                                            */
@@ -55,6 +56,7 @@ export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.04));
 const etherealBlue = new Color(COLORS.etherealBlue);
 const etherealGlow = new Color(COLORS.etherealGlow);
 const goldWarm = new Color(COLORS.goldWarm);
+const goldBright = new Color(COLORS.goldBright);
 
 /* ------------------------------------------------------------------ */
 /*  Create material                                                   */
@@ -89,6 +91,13 @@ export function createParticleMaterial(
     clamp(uMatScrollProgress.mul(0.6), float(0), float(0.5)),
   );
 
+  // ---- Logo glow pulse (gold shift during convergence) ----
+  const logoColor = mix(
+    scrollShiftedColor,
+    color(goldBright),
+    clamp(uMatLogoGlow, float(0), float(1)),
+  );
+
   // ---- Breathing / pulsing brightness ----
   const breathPhase = add(uMatTime.mul(0.5), particleHash.mul(6.2831));
   const breathFactor = add(float(0.8), mul(sin(breathPhase), float(0.2)));
@@ -120,8 +129,15 @@ export function createParticleMaterial(
   );
   const particleScale = mul(uMatParticleSize, scaleBreath);
 
+  // Boost alpha during logo glow for brighter convergence
+  const glowAlpha = clamp(
+    add(finalAlpha, uMatLogoGlow.mul(float(0.15))),
+    float(0.008),
+    float(0.35),
+  );
+
   // Assign to material
-  material.colorNode = vec4(scrollShiftedColor, finalAlpha);
+  material.colorNode = vec4(logoColor, glowAlpha);
   material.scaleNode = vec3(particleScale, particleScale, particleScale);
 
   return material;

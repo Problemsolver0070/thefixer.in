@@ -28,6 +28,7 @@ import {
   clamp,
   hash,
   If,
+  mix,
 } from "three/tsl";
 
 import type { StorageInstancedBufferAttribute } from "three/webgpu";
@@ -44,6 +45,7 @@ export const uMouseInfluence = /* @__PURE__ */ uniform(float(0));
 export const uScrollProgress = /* @__PURE__ */ uniform(float(0));
 export const uDriftSpeed = /* @__PURE__ */ uniform(float(1.0));
 export const uBoundaryRadius = /* @__PURE__ */ uniform(float(26));
+export const uSeekStrength = /* @__PURE__ */ uniform(float(0));
 
 /* ------------------------------------------------------------------ */
 /*  Build compute kernel                                              */
@@ -52,9 +54,11 @@ export const uBoundaryRadius = /* @__PURE__ */ uniform(float(26));
 export function createParticleComputeShader(
   posBuffer: StorageInstancedBufferAttribute,
   velBuffer: StorageInstancedBufferAttribute,
+  targetBuffer: StorageInstancedBufferAttribute,
 ) {
   const posStorage = storage(posBuffer, "vec3", posBuffer.count);
   const velStorage = storage(velBuffer, "vec3", velBuffer.count);
+  const targetStorage = storage(targetBuffer, "vec4", targetBuffer.count);
 
   const computeUpdate = Fn(() => {
     const pos = posStorage.element(instanceIndex);
@@ -91,10 +95,12 @@ export function createParticleComputeShader(
     // Per-particle speed variation (0.5x to 1.5x)
     const speedMul = h0.add(0.5);
 
+    // Reduce drift during convergence so it doesn't fight the seek
+    const driftScale = sub(float(1.0), uSeekStrength.mul(0.85));
     const driftForce = vec3(
-      curlX.mul(uDriftSpeed).mul(speedMul),
-      curlY.mul(uDriftSpeed).mul(speedMul),
-      curlZ.mul(uDriftSpeed).mul(speedMul),
+      curlX.mul(uDriftSpeed).mul(speedMul).mul(driftScale),
+      curlY.mul(uDriftSpeed).mul(speedMul).mul(driftScale),
+      curlZ.mul(uDriftSpeed).mul(speedMul).mul(driftScale),
     );
 
     // ================================================================
@@ -130,11 +136,22 @@ export function createParticleComputeShader(
     const scrollLift = vec3(float(0), uScrollProgress.mul(0.15), float(0));
 
     // ================================================================
+    // SEEK TARGET (logo convergence)
+    // ================================================================
+    const target = targetStorage.element(instanceIndex);
+    const targetWeight = target.w;
+    const targetPos = vec3(target.x, target.y, target.z);
+    const toTarget = sub(targetPos, pos);
+    const seekMagnitude = float(3.0);
+    const seekForce = mul(toTarget, uSeekStrength.mul(seekMagnitude).mul(targetWeight));
+
+    // ================================================================
     // VELOCITY INTEGRATION (semi-implicit Euler)
     // ================================================================
-    const damping = float(0.992);
+    // Higher damping during convergence prevents overshoot
+    const damping = mix(float(0.992), float(0.94), uSeekStrength);
     const totalForce = add(
-      add(add(add(driftForce, mouseForce), boundaryForce), centerPull),
+      add(add(add(add(driftForce, mouseForce), boundaryForce), centerPull), seekForce),
       add(scrollPush, scrollLift),
     );
     vel.assign(add(mul(vel, damping), totalForce.mul(uDeltaTime)));
