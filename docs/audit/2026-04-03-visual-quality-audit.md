@@ -15,8 +15,8 @@
 - [x] **3. Force-completing the intro on scroll is jarring** ✅ Fixed in `8eafaf8`
   Scroll during intro triggers `intro.timeScale(5)` instead of `intro.progress(1)`. All phases play at 5x speed (~2.4s) — no teleportation. Early returns prevent seek contention during fast-forward. `onLeave` kills any zombie timeline.
 
-- [ ] **4. Font race condition in `textToPointCloud`**
-  `text-to-points.ts:39` creates a canvas and renders with `"Inter, Arial, Helvetica, sans-serif"`. If Inter hasn't loaded when this runs (it's a Google Font, loaded async via `next/font`), the canvas falls back to Arial. The point cloud shape will be subtly different — wrong letter widths, wrong spacing. No font-load guarantee.
+- [x] **4. Font race condition in `textToPointCloud`** ✅ Fixed in `8215df5`
+  `await document.fonts.ready` added before text point cloud generation. Inter is guaranteed loaded before canvas rendering.
 
 - [ ] **5. Bloom absence changes visual tuning**
   `cosmos-engine.ts:175-180` — if `RenderPipeline` construction fails (common on some WebGL2 configs), the engine silently drops bloom and falls back to direct rendering. But the particle material's alpha values (0.008-0.2, additive blending) were tuned assuming bloom amplifies brightness. Without bloom, the particle field looks dimmer and flatter. No compensation.
