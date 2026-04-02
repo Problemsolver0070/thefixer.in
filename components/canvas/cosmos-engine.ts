@@ -57,6 +57,11 @@ export class CosmosEngine {
 
   private unsubscribeScroll: (() => void) | null = null;
 
+  /** Public access for animation controllers (e.g. HeroSection GSAP timeline) */
+  get particles(): ParticleSystem {
+    return this.particleSystem;
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
