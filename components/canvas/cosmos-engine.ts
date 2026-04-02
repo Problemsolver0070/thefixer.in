@@ -127,8 +127,8 @@ export class CosmosEngine {
     const initialCount = this.gpuTier.tier === "high"
       ? PARTICLE_CONFIG.desktopBaseline
       : this.gpuTier.tier === "medium"
-        ? PARTICLE_CONFIG.desktopBaseline
-        : PARTICLE_CONFIG.mobileBaseline;
+        ? Math.min(PARTICLE_CONFIG.desktopBaseline, this.gpuTier.maxParticles)
+        : Math.min(PARTICLE_CONFIG.mobileBaseline, this.gpuTier.maxParticles);
     this.particleSystem.setParticleCount(initialCount);
 
     // ---- Render Pipeline with Bloom ----
