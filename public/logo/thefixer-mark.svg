@@ -1,0 +1,10 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor">
+  <!-- 3/4 circle arc (270°) — gap at upper-right. Suggests precision gauge, scope, focus. -->
+  <path d="M169 140 A80 80 0 1 1 140 31" stroke-width="4" stroke-linecap="round"/>
+  <!-- Vertical crosshair — precision, alignment -->
+  <path d="M100 55 L100 145" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Horizontal crosshair — balance, stability -->
+  <path d="M55 100 L145 100" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Accent diagonal in the gap — dynamism, the "fix" entering the system -->
+  <path d="M152 42 L167 57" stroke-width="3" stroke-linecap="round"/>
+</svg>
