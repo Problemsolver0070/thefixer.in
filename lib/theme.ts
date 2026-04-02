@@ -17,8 +17,8 @@ export const PARTICLE_CONFIG = {
   minFps: 55,
   targetFps: 60,
   adjustmentInterval: 30,
-  particleSize: 0.015,
-  driftSpeed: 0.0003,
+  particleSize: 0.4,
+  driftSpeed: 0.15,
 } as const;
 
 export const SCROLL_CONFIG = {
