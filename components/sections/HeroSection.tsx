@@ -143,6 +143,9 @@ export default function HeroSection() {
       try {
         const dims = getResponsiveDimensions();
 
+        // Ensure Inter font is loaded before rendering text to canvas
+        await document.fonts.ready;
+
         // Phase 1: Crosshair logo — compute and store base
         const logoCloud = await svgToPointCloud(
           LOGO_SVG_URL,
