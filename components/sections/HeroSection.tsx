@@ -20,10 +20,20 @@ import { textToPointCloud } from "@/lib/text-to-points";
 import type { CosmosEngine } from "@/components/canvas/cosmos-engine";
 
 const LOGO_SVG_URL = "/logo/thefixer-mark.svg";
-const LOGO_POINT_COUNT = 8000;
-const LOGO_WORLD_SCALE = 14;
 
-/** Compute viewport-aware world dimensions for particle text */
+/** Fixed particle counts — never change with viewport. More particles = denser text. */
+const LOGO_POINT_COUNT = 8000;
+const TEXT_POINT_COUNT = 8000;
+const TAGLINE_POINT_COUNT = 5000;
+
+/** Base positions stored before Y-offset, used for deterministic rescaling. */
+interface BaseCloud {
+  positions: Float32Array;
+  count: number;
+  worldScale: number; // the worldWidth or worldScale used to generate these
+}
+
+/** Compute viewport-aware world dimensions for all particle formations */
 function getResponsiveDimensions() {
   const aspectRatio = window.innerWidth / window.innerHeight;
 
@@ -32,30 +42,47 @@ function getResponsiveDimensions() {
   const visibleHeight = 2 * 30 * Math.tan((60 * Math.PI) / 360);
   const visibleWidth = visibleHeight * aspectRatio;
 
-  // Text should fill ~55% of visible width on desktop, ~85% on mobile portrait
   const isPortrait = aspectRatio < 1;
-  const textFill = isPortrait ? 0.85 : 0.55;
-  const taglineFill = isPortrait ? 0.90 : 0.60;
 
-  const textWorldWidth = visibleWidth * textFill;
-  const taglineWorldWidth = visibleWidth * taglineFill;
+  // Crosshair logo — 0.23 preserves existing desktop look (was fixed at 14 ≈ 14/61.66)
+  const logoWorldScale = visibleWidth * (isPortrait ? 0.55 : 0.23);
 
-  // Y offsets: tighter on mobile (less vertical space relative to text size)
+  // "THE FIXER" text — fills ~55% desktop, ~85% mobile portrait
+  const textWorldWidth = visibleWidth * (isPortrait ? 0.85 : 0.55);
   const textYOffset = isPortrait ? 1.0 : 1.5;
+
+  // Tagline — slightly wider than title
+  const taglineWorldWidth = visibleWidth * (isPortrait ? 0.90 : 0.60);
   const taglineYOffset = isPortrait ? -1.8 : -2.5;
 
-  // Point counts: slightly fewer on very narrow screens for density
-  const textPointCount = isPortrait ? 6000 : 8000;
-  const taglinePointCount = isPortrait ? 4000 : 5000;
-
   return {
+    logoWorldScale,
     textWorldWidth,
-    taglineWorldWidth,
     textYOffset,
+    taglineWorldWidth,
     taglineYOffset,
-    textPointCount,
-    taglinePointCount,
   };
+}
+
+/**
+ * Rescale a base point cloud to new world dimensions.
+ * Pure O(n) multiply+add — no network, no canvas, no random sampling.
+ * Deterministic: same particle always maps to the same shape position.
+ */
+function rescaleCloud(
+  base: BaseCloud,
+  newWorldScale: number,
+  yOffset: number,
+): Float32Array {
+  const ratio = newWorldScale / base.worldScale;
+  const out = new Float32Array(base.count * 3);
+  for (let i = 0; i < base.count; i++) {
+    const i3 = i * 3;
+    out[i3] = base.positions[i3] * ratio;
+    out[i3 + 1] = base.positions[i3 + 1] * ratio + yOffset;
+    out[i3 + 2] = base.positions[i3 + 2]; // z stays 0
+  }
+  return out;
 }
 
 export default function HeroSection() {
@@ -64,9 +91,48 @@ export default function HeroSection() {
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<CosmosEngine | null>(null);
 
-  // Store point clouds for each phase
-  const textCloudRef = useRef<{ positions: Float32Array; count: number } | null>(null);
-  const combinedCloudRef = useRef<{ positions: Float32Array; count: number } | null>(null);
+  // Base point clouds — computed once, never modified. Rescaled on viewport change.
+  const logoBaseRef = useRef<BaseCloud | null>(null);
+  const textBaseRef = useRef<BaseCloud | null>(null);
+  const taglineBaseRef = useRef<BaseCloud | null>(null);
+  const phaseRef = useRef<'logo' | 'text' | 'combined'>('logo');
+
+  /**
+   * Single source of truth for particle targets.
+   * Reads current viewport dimensions fresh, rescales from stored base positions,
+   * and sets the target buffer. Called by: initial setup, GSAP timeline, resize handler.
+   */
+  const setTargetsForPhase = (phase: 'logo' | 'text' | 'combined') => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    phaseRef.current = phase;
+    const dims = getResponsiveDimensions();
+
+    if (phase === 'logo') {
+      const base = logoBaseRef.current;
+      if (!base) return;
+      const scaled = rescaleCloud(base, dims.logoWorldScale, 0);
+      engine.particles.setTargetPositions(scaled, base.count);
+    } else if (phase === 'text') {
+      const base = textBaseRef.current;
+      if (!base) return;
+      const scaled = rescaleCloud(base, dims.textWorldWidth, dims.textYOffset);
+      engine.particles.setTargetPositions(scaled, base.count);
+    } else if (phase === 'combined') {
+      const tBase = textBaseRef.current;
+      const tlBase = taglineBaseRef.current;
+      if (!tBase || !tlBase) return;
+      const scaledText = rescaleCloud(tBase, dims.textWorldWidth, dims.textYOffset);
+      const scaledTagline = rescaleCloud(tlBase, dims.taglineWorldWidth, dims.taglineYOffset);
+      const totalCount = tBase.count + tlBase.count;
+      // Combined buffer: text (0..tBase.count-1) + tagline (tBase.count..totalCount-1)
+      const combined = new Float32Array(totalCount * 3);
+      combined.set(scaledText);
+      combined.set(scaledTagline, tBase.count * 3);
+      engine.particles.setTargetPositions(combined, totalCount);
+    }
+  };
 
   const [ready, setReady] = useState(false);
 
@@ -75,21 +141,24 @@ export default function HeroSection() {
       engineRef.current = engine;
 
       try {
-        // Phase 1: Crosshair logo point cloud
+        const dims = getResponsiveDimensions();
+
+        // Phase 1: Crosshair logo — compute and store base
         const logoCloud = await svgToPointCloud(
           LOGO_SVG_URL,
           LOGO_POINT_COUNT,
-          LOGO_WORLD_SCALE,
+          dims.logoWorldScale,
         );
-        engine.particles.setTargetPositions(logoCloud.positions, logoCloud.count);
+        logoBaseRef.current = {
+          positions: logoCloud.positions.slice(),
+          count: logoCloud.count,
+          worldScale: dims.logoWorldScale,
+        };
 
-        // Compute responsive dimensions based on current viewport
-        const dims = getResponsiveDimensions();
-
-        // Phase 2: "THE FIXER" text point cloud
+        // Phase 2: "THE FIXER" text — compute and store base (before Y-offset)
         const textCloud = textToPointCloud(
           "THE FIXER",
-          dims.textPointCount,
+          TEXT_POINT_COUNT,
           dims.textWorldWidth,
           {
             fontWeight: 700,
@@ -97,17 +166,16 @@ export default function HeroSection() {
             letterSpacing: 24,
           },
         );
+        textBaseRef.current = {
+          positions: textCloud.positions.slice(),
+          count: textCloud.count,
+          worldScale: dims.textWorldWidth,
+        };
 
-        // Offset text positions UP (y + textYOffset)
-        for (let i = 0; i < textCloud.count; i++) {
-          textCloud.positions[i * 3 + 1] += dims.textYOffset;
-        }
-        textCloudRef.current = textCloud;
-
-        // Phase 3: Tagline point cloud
+        // Phase 3: Tagline — compute and store base (before Y-offset)
         const taglineCloud = textToPointCloud(
           "You've exhausted every option. That's why you're here.",
-          dims.taglinePointCount,
+          TAGLINE_POINT_COUNT,
           dims.taglineWorldWidth,
           {
             fontWeight: 400,
@@ -115,18 +183,14 @@ export default function HeroSection() {
             letterSpacing: 4,
           },
         );
+        taglineBaseRef.current = {
+          positions: taglineCloud.positions.slice(),
+          count: taglineCloud.count,
+          worldScale: dims.taglineWorldWidth,
+        };
 
-        // Offset tagline positions DOWN (y + taglineYOffset)
-        for (let i = 0; i < taglineCloud.count; i++) {
-          taglineCloud.positions[i * 3 + 1] += dims.taglineYOffset;
-        }
-
-        // Combined buffer: text (0..textCount-1) + tagline (textCount..totalCount-1)
-        const totalCount = textCloud.count + taglineCloud.count;
-        const combinedPositions = new Float32Array(totalCount * 3);
-        combinedPositions.set(textCloud.positions);
-        combinedPositions.set(taglineCloud.positions, textCloud.count * 3);
-        combinedCloudRef.current = { positions: combinedPositions, count: totalCount };
+        // Set initial targets (crosshair logo) using current viewport
+        setTargetsForPhase('logo');
 
         setReady(true);
       } catch (err) {
@@ -143,8 +207,6 @@ export default function HeroSection() {
       if (!ready || !engineRef.current || !sectionRef.current) return;
 
       const engine = engineRef.current;
-      const textCloud = textCloudRef.current;
-      const combinedCloud = combinedCloudRef.current;
 
       const seekProxy = { value: 0 };
       const glowProxy = { value: 0 };
@@ -200,20 +262,14 @@ export default function HeroSection() {
       // PHASE 2: "THE FIXER" Text Formation
       // ============================================================
 
-      if (textCloud) {
+      if (textBaseRef.current) {
         // Swap targets: crosshair → text (after 1s beat)
         intro.call(
-          () => {
-            engine.particles.setTargetPositions(
-              textCloud.positions,
-              textCloud.count,
-            );
-          },
+          () => setTargetsForPhase('text'),
           [],
           ">1.0",
         );
 
-        // Gold flash during rearrangement
         intro.to(
           glowProxy,
           {
@@ -236,22 +292,15 @@ export default function HeroSection() {
       // PHASE 3: Tagline Formation
       // ============================================================
 
-      if (combinedCloud) {
-        // Swap targets: text-only → text+tagline (after text settles)
-        // Text particles (0-7999) keep same positions — won't move
-        // Tagline particles (8000-12999) converge from ambient field
+      if (taglineBaseRef.current) {
+        // Swap targets: text-only → text+tagline
+        // Text particles keep same positions — tagline particles converge from ambient field
         intro.call(
-          () => {
-            engine.particles.setTargetPositions(
-              combinedCloud.positions,
-              combinedCloud.count,
-            );
-          },
+          () => setTargetsForPhase('combined'),
           [],
           ">1.0",
         );
 
-        // Subtle gold flash for tagline formation
         intro.to(
           glowProxy,
           {
@@ -308,6 +357,28 @@ export default function HeroSection() {
     },
     { scope: sectionRef, dependencies: [ready] },
   );
+
+  // ---- Viewport resize → rescale particle targets ----
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (!engineRef.current) return;
+        setTargetsForPhase(phaseRef.current);
+      }, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
 
   return (
     <section
