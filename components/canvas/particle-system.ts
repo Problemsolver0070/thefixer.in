@@ -1,10 +1,13 @@
 /**
  * ParticleSystem — manages GPU storage buffers, compute dispatch,
  * and the renderable mesh for the cosmos particle field.
+ *
+ * Supports two animation modes:
+ * - GPU compute (WebGPU) — compute shader runs curl-noise on GPU
+ * - CPU fallback (WebGL2) — cpuAnimate() runs curl-noise on CPU
  */
 import {
   StorageInstancedBufferAttribute,
-  BufferGeometry,
   Sprite,
   Group,
 } from "three/webgpu";
@@ -35,29 +38,29 @@ import {
 /* ------------------------------------------------------------------ */
 
 export class ParticleSystem {
-  /** Maximum allocated buffer size */
   readonly maxParticles: number;
-
-  /** Current active particle count */
   private _activeCount: number;
 
-  /** GPU storage buffers */
+  /** GPU storage buffers (also readable as vertex attributes in WebGL2) */
   private posBuffer: StorageInstancedBufferAttribute;
   private velBuffer: StorageInstancedBufferAttribute;
 
-  /** Compute kernel (returned by createParticleComputeShader) */
+  /** GPU compute kernel (WebGPU only) */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  computeNode: any;
+  computeUpdate: any;
 
-  /** Renderable group containing sprites */
+  /** Renderable group */
   readonly group: Group;
+  private sprite: Sprite;
 
-  /** Individual sprite instances (one per particle — managed by the engine) */
-  private sprites: Sprite[] = [];
-
-  /** The material shared by all sprites */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private material: any;
+
+  /** Mouse state for CPU animation */
+  private _mouseX = 0;
+  private _mouseY = 0;
+  private _mouseInfluence = 0;
+  private _scrollProgress = 0;
 
   private disposed = false;
 
@@ -71,72 +74,179 @@ export class ParticleSystem {
     // ---- Create GPU storage buffers ----
     this.posBuffer = new StorageInstancedBufferAttribute(
       this.maxParticles,
-      3, // vec3 — x, y, z
+      3, // vec3
     );
     this.velBuffer = new StorageInstancedBufferAttribute(
       this.maxParticles,
       3,
     );
 
-    // ---- Initialise particle positions in a spherical distribution ----
+    // ---- Initialize positions on CPU (works for both WebGPU & WebGL2) ----
     this.initPositions();
 
-    // ---- Build compute shader ----
-    this.computeNode = createParticleComputeShader(
+    // ---- Build compute shader (creates storage nodes) ----
+    const { computeUpdate } = createParticleComputeShader(
       this.posBuffer,
       this.velBuffer,
     );
+    this.computeUpdate = computeUpdate;
 
-    // ---- Build material ----
+    // ---- Build material (creates its own storage node for same buffer) ----
     this.material = createParticleMaterial(this.posBuffer);
 
-    // ---- Build renderable group with instanced sprites ----
+    // ---- Build renderable sprite ----
     this.group = new Group();
     this.group.name = "ParticleSystem";
 
-    // We use a single Sprite with the node material.
-    // StorageInstancedBufferAttribute + SpriteNodeMaterial handles the instancing
-    // on the GPU via instanceIndex in the shader.
-    const sprite = new Sprite(this.material);
-    sprite.count = this._activeCount;
-    sprite.frustumCulled = false;
-    this.group.add(sprite);
-    this.sprites.push(sprite);
+    this.sprite = new Sprite(this.material);
+    this.sprite.count = this._activeCount;
+    this.sprite.frustumCulled = false;
+    this.group.add(this.sprite);
 
     // Set defaults
     uDriftSpeed.value = PARTICLE_CONFIG.driftSpeed;
     uMatParticleSize.value = PARTICLE_CONFIG.particleSize;
-    uBoundaryRadius.value = 20;
+    uBoundaryRadius.value = 26;
   }
 
   /* ---------------------------------------------------------------- */
-  /*  Initialise positions in a sphere                                */
+  /*  CPU position initialization (spherical distribution)            */
   /* ---------------------------------------------------------------- */
 
   private initPositions(): void {
     const posArray = this.posBuffer.array as Float32Array;
     const velArray = this.velBuffer.array as Float32Array;
-    const radius = 18; // sphere radius
+    const radius = 24;
 
     for (let i = 0; i < this.maxParticles; i++) {
       const i3 = i * 3;
 
-      // Spherical distribution — uniform volume sampling
+      // Uniform volume sphere sampling
       const u = Math.random();
       const v = Math.random();
       const theta = 2 * Math.PI * u;
       const phi = Math.acos(2 * v - 1);
-      const r = radius * Math.cbrt(Math.random()); // cbrt for uniform volume
+      const r = radius * Math.cbrt(Math.random());
 
       posArray[i3] = r * Math.sin(phi) * Math.cos(theta);
       posArray[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       posArray[i3 + 2] = r * Math.cos(phi);
 
-      // Zero initial velocity with tiny random perturbation
-      velArray[i3] = (Math.random() - 0.5) * 0.001;
-      velArray[i3 + 1] = (Math.random() - 0.5) * 0.001;
-      velArray[i3 + 2] = (Math.random() - 0.5) * 0.001;
+      // Small initial velocity so particles are already drifting
+      velArray[i3] = (Math.random() - 0.5) * 0.3;
+      velArray[i3 + 1] = (Math.random() - 0.5) * 0.3;
+      velArray[i3 + 2] = (Math.random() - 0.5) * 0.3;
     }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  CPU animation fallback (WebGL2 — no compute shaders)            */
+  /* ---------------------------------------------------------------- */
+
+  cpuAnimate(time: number, deltaTime: number): void {
+    if (this.disposed) return;
+
+    const pos = this.posBuffer.array as Float32Array;
+    const vel = this.velBuffer.array as Float32Array;
+    const count = this._activeCount;
+    const driftSpeed = PARTICLE_CONFIG.driftSpeed;
+    const boundaryRadius = 26;
+    const damping = 0.992;
+    const maxSpeed = 4.0;
+    const t = time * 0.15;
+
+    const mx = this._mouseX;
+    const my = this._mouseY;
+    const mInf = this._mouseInfluence;
+    const scroll = this._scrollProgress;
+
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      const px = pos[i3];
+      const py = pos[i3 + 1];
+      const pz = pos[i3 + 2];
+
+      // ---- Curl-noise flow field (position-dependent) ----
+      const sx = px * 0.08;
+      const sy = py * 0.08;
+      const sz = pz * 0.08;
+
+      const a0 = Math.sin(sx + t * 0.7);
+      const a1 = Math.cos(sy * 1.3 + t * 0.5);
+      const a2 = Math.sin(sz * 0.9 + t * 0.6);
+
+      const b0 = Math.cos(sx * 0.7 + t * 0.4);
+      const b1 = Math.sin(sy * 1.1 + t * 0.8);
+      const b2 = Math.cos(sz * 1.2 + t * 0.3);
+
+      // Cross product → curl direction
+      let fx = (a1 * b2 - a2 * b1) * driftSpeed;
+      let fy = (a2 * b0 - a0 * b2) * driftSpeed;
+      let fz = (a0 * b1 - a1 * b0) * driftSpeed;
+
+      // ---- Mouse influence ----
+      if (mInf > 0) {
+        const dx = mx - px;
+        const dy = my - py;
+        const dz = -pz;
+        const md = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (md > 0.001) {
+          const ms = Math.min(mInf * 8.0 / (md * md + 1.0), 2.0);
+          fx += (dx / md) * ms;
+          fy += (dy / md) * ms;
+          fz += (dz / md) * ms;
+        }
+      }
+
+      // ---- Soft boundary ----
+      const dist = Math.sqrt(px * px + py * py + pz * pz);
+      if (dist > 0.001) {
+        // Boundary push
+        if (dist > boundaryRadius) {
+          const overflow = (dist - boundaryRadius) / 4.0;
+          const bs = Math.min(overflow, 1.0) * 3.0;
+          fx -= (px / dist) * bs;
+          fy -= (py / dist) * bs;
+          fz -= (pz / dist) * bs;
+        }
+        // Gentle center pull
+        fx -= (px / dist) * 0.02;
+        fy -= (py / dist) * 0.02;
+        fz -= (pz / dist) * 0.02;
+      }
+
+      // ---- Scroll influence ----
+      if (scroll > 0 && dist > 0.001) {
+        fx += (px / dist) * scroll * 0.3;
+        fy += (py / dist) * scroll * 0.15 + scroll * 0.15;
+        fz += (pz / dist) * scroll * 0.3;
+      }
+
+      // ---- Velocity integration ----
+      vel[i3] = vel[i3] * damping + fx * deltaTime;
+      vel[i3 + 1] = vel[i3 + 1] * damping + fy * deltaTime;
+      vel[i3 + 2] = vel[i3 + 2] * damping + fz * deltaTime;
+
+      // Clamp speed
+      const vx = vel[i3];
+      const vy = vel[i3 + 1];
+      const vz = vel[i3 + 2];
+      const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+      if (speed > maxSpeed) {
+        const s = maxSpeed / speed;
+        vel[i3] *= s;
+        vel[i3 + 1] *= s;
+        vel[i3 + 2] *= s;
+      }
+
+      // ---- Update position ----
+      pos[i3] += vel[i3] * deltaTime;
+      pos[i3 + 1] += vel[i3 + 1] * deltaTime;
+      pos[i3 + 2] += vel[i3 + 2] * deltaTime;
+    }
+
+    // Tell Three.js to re-upload the buffer to GPU
+    this.posBuffer.needsUpdate = true;
   }
 
   /* ---------------------------------------------------------------- */
@@ -144,13 +254,9 @@ export class ParticleSystem {
   /* ---------------------------------------------------------------- */
 
   setParticleCount(count: number): void {
-    this._activeCount = Math.max(
-      1000,
-      Math.min(count, this.maxParticles),
-    );
-    // Update the sprite instance count
-    if (this.sprites[0]) {
-      this.sprites[0].count = this._activeCount;
+    this._activeCount = Math.max(1000, Math.min(count, this.maxParticles));
+    if (this.sprite) {
+      this.sprite.count = this._activeCount;
     }
   }
 
@@ -159,19 +265,22 @@ export class ParticleSystem {
   }
 
   setMousePosition(x: number, y: number, influence: number): void {
+    this._mouseX = x;
+    this._mouseY = y;
+    this._mouseInfluence = influence;
     uMouseX.value = x;
     uMouseY.value = y;
     uMouseInfluence.value = influence;
   }
 
   setScrollProgress(progress: number): void {
+    this._scrollProgress = progress;
     uScrollProgress.value = progress;
     uMatScrollProgress.value = progress;
   }
 
   update(time: number, deltaTime: number): void {
     if (this.disposed) return;
-
     uTime.value = time;
     uDeltaTime.value = deltaTime;
     uMatTime.value = time;
@@ -180,11 +289,8 @@ export class ParticleSystem {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-
     this.material?.dispose();
-    this.sprites.forEach((s) => {
-      s.geometry?.dispose();
-    });
+    this.sprite?.geometry?.dispose();
     this.group.clear();
   }
 }

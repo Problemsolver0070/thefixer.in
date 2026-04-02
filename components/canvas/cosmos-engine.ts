@@ -3,6 +3,10 @@
  *
  * Creates scene, camera, renderer, post-processing with bloom,
  * particle system, performance monitor. Drives the animation loop.
+ *
+ * Supports two modes:
+ * - WebGPU: GPU compute shaders drive particle physics
+ * - WebGL2 fallback: CPU animation drives particle physics
  */
 import {
   Scene,
@@ -48,8 +52,10 @@ export class CosmosEngine {
   private lastTime = 0;
   private disposed = false;
 
+  /** Whether GPU compute is available (WebGPU) or we use CPU fallback */
+  private useGPUCompute = false;
+
   private unsubscribeScroll: (() => void) | null = null;
-  private _computeWarned = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -60,7 +66,6 @@ export class CosmosEngine {
   /* ---------------------------------------------------------------- */
 
   async init(): Promise<void> {
-    // Detect GPU capabilities
     this.gpuTier = await detectGPUTier();
 
     // ---- Scene ----
@@ -84,13 +89,11 @@ export class CosmosEngine {
       canvas: this.canvas,
       antialias: true,
       alpha: false,
-      // Fall back to WebGL2 if WebGPU unavailable
       forceWebGL: this.gpuTier.renderer === "webgl2",
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.width, this.height);
 
-    // WebGPURenderer requires async init
     await this.renderer.init();
 
     // ---- Particle System ----
@@ -98,7 +101,24 @@ export class CosmosEngine {
     this.particleSystem = new ParticleSystem(maxParticles);
     this.scene.add(this.particleSystem.group);
 
-    // Set initial particle count based on GPU tier
+    // ---- Detect compute capability ----
+    // Try a single compute dispatch. If it works, we use GPU compute.
+    // If it throws (WebGL2 fallback), we use CPU animation.
+    if (this.gpuTier.renderer === "webgpu") {
+      try {
+        this.renderer.compute(this.particleSystem.computeUpdate);
+        this.useGPUCompute = true;
+        console.log("[CosmosEngine] GPU compute available ✓");
+      } catch (e) {
+        this.useGPUCompute = false;
+        console.log("[CosmosEngine] GPU compute failed, using CPU animation:", e);
+      }
+    } else {
+      this.useGPUCompute = false;
+      console.log("[CosmosEngine] WebGL2 mode — using CPU animation");
+    }
+
+    // ---- Set initial particle count ----
     const initialCount = this.gpuTier.tier === "high"
       ? PARTICLE_CONFIG.desktopBaseline
       : this.gpuTier.tier === "medium"
@@ -114,7 +134,7 @@ export class CosmosEngine {
       initialParticles: initialCount,
       maxParticles,
       hasBloom: !!this.renderPipeline,
-      rendererType: this.renderer.constructor.name,
+      useGPUCompute: this.useGPUCompute,
     });
 
     // ---- Performance Monitor ----
@@ -125,7 +145,7 @@ export class CosmosEngine {
       initialParticles: initialCount,
       minParticles: 10_000,
       maxParticles: maxParticles,
-      stepSize: Math.floor(maxParticles * 0.05), // 5% steps
+      stepSize: Math.floor(maxParticles * 0.05),
     };
     this.performanceMonitor = new PerformanceMonitor(perfConfig);
 
@@ -142,15 +162,13 @@ export class CosmosEngine {
   private setupRenderPipeline(): void {
     try {
       const scenePass = pass(this.scene, this.camera);
-      const bloomPass = bloom(scenePass, 0.8, 0.4, 0.2);
+      const bloomPass = bloom(scenePass, 0.25, 0.3, 0.1);
       const outputNode = scenePass.add(bloomPass);
 
       this.renderPipeline = new RenderPipeline(this.renderer, outputNode);
     } catch (e) {
-      // Bloom/RenderPipeline may fail on some configurations.
-      // Fall back to direct rendering.
       console.warn(
-        "[CosmosEngine] RenderPipeline/Bloom setup failed, using direct rendering:",
+        "[CosmosEngine] RenderPipeline/Bloom failed, using direct rendering:",
         e,
       );
       this.renderPipeline = null;
@@ -182,7 +200,7 @@ export class CosmosEngine {
 
     const now = performance.now();
     const time = now / 1000 - this.startTime;
-    const deltaTime = Math.min(time - (this.lastTime - this.startTime), 0.05); // cap at 50ms
+    const deltaTime = Math.min(time - (this.lastTime - this.startTime), 0.05);
     this.lastTime = now / 1000;
 
     // ---- Performance monitoring & adaptive quality ----
@@ -192,18 +210,14 @@ export class CosmosEngine {
       this.particleSystem.setParticleCount(targetCount);
     }
 
-    // ---- Update particle uniforms ----
+    // ---- Update uniforms ----
     this.particleSystem.update(time, deltaTime);
 
-    // ---- Run GPU compute ----
-    try {
-      this.renderer.compute(this.particleSystem.computeNode);
-    } catch (e) {
-      // compute may not be available on WebGL fallback
-      if (!this._computeWarned) {
-        console.warn("[CosmosEngine] Compute failed:", e);
-        this._computeWarned = true;
-      }
+    // ---- Animate particles (GPU compute or CPU fallback) ----
+    if (this.useGPUCompute) {
+      this.renderer.compute(this.particleSystem.computeUpdate);
+    } else {
+      this.particleSystem.cpuAnimate(time, deltaTime);
     }
 
     // ---- Render ----
@@ -211,7 +225,6 @@ export class CosmosEngine {
       try {
         this.renderPipeline.render();
       } catch {
-        // Fall back to direct rendering on pipeline error
         this.renderPipeline = null;
         this.renderer.render(this.scene, this.camera);
       }
@@ -229,11 +242,9 @@ export class CosmosEngine {
   setMousePosition(clientX: number, clientY: number): void {
     if (!this.camera) return;
 
-    // Convert screen coords to normalized device coords then to world space (z=0 plane)
     const ndcX = (clientX / this.width) * 2 - 1;
     const ndcY = -(clientY / this.height) * 2 + 1;
 
-    // Simple perspective projection to world coords at z=0
     const fovRad = (this.camera.fov * Math.PI) / 180;
     const halfHeight = Math.tan(fovRad / 2) * this.camera.position.z;
     const halfWidth = halfHeight * this.camera.aspect;
@@ -263,7 +274,6 @@ export class CosmosEngine {
 
     this.renderer.setSize(this.width, this.height);
 
-    // RenderPipeline needs update after resize
     if (this.renderPipeline) {
       this.renderPipeline.needsUpdate = true;
     }
