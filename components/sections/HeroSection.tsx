@@ -62,8 +62,17 @@ export default function HeroSection() {
       const seekProxy = { value: 0 };
       const glowProxy = { value: 0 };
 
+      // Track whether intro has finished — prevents ScrollTrigger
+      // from force-completing the intro due to Lenis micro-scroll events.
+      let introComplete = false;
+
       // ---- AUTO-PLAY EMERGENCE TIMELINE ----
-      const intro = gsap.timeline({ delay: 0.8 });
+      const intro = gsap.timeline({
+        delay: 0.8,
+        onComplete: () => {
+          introComplete = true;
+        },
+      });
 
       // 1. Edge glow fades in
       intro.to(edgeGlowRef.current, {
@@ -102,30 +111,34 @@ export default function HeroSection() {
         onUpdate: () => engine.particles.setLogoGlow(glowProxy.value),
       });
 
-      // 4. Brand name + tagline fade in
+      // 4. Brand name — deliberate pause after gold pulse, then slow rise
       intro.fromTo(
         brandNameRef.current,
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 1.2, ease: "power2.out" },
-        "<0.2",
-      );
-      intro.fromTo(
-        taglineRef.current,
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 1.2, ease: "power2.out" },
-        "<0.3",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 2.0, ease: "power3.out" },
+        ">1.0", // 1s beat after glow settles — let the logo breathe
       );
 
-      // 5. Scroll indicator appears
+      // 5. Tagline — staggered, starts while brand name is mid-reveal
+      intro.fromTo(
+        taglineRef.current,
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 1.5, ease: "power3.out" },
+        "<1.0", // 1s into brand name animation
+      );
+
+      // 6. Scroll indicator — gentle fade after tagline lands
       intro.fromTo(
         scrollIndicatorRef.current,
         { opacity: 0 },
-        { opacity: 1, duration: 1, ease: "power1.in" },
-        ">0.5",
+        { opacity: 1, duration: 1.5, ease: "power1.in" },
+        ">0.8",
       );
 
       // ---- SCROLL-DRIVEN DISSOLVE ----
-      // When user scrolls the hero out of view, dissolve the logo
+      // When user scrolls the hero out of view, dissolve the logo.
+      // The progress threshold (0.03) prevents Lenis smooth scroll
+      // micro-events from triggering the dissolve during the intro.
       ScrollTrigger.create({
         trigger: sectionRef.current,
         start: "top top",
@@ -134,9 +147,14 @@ export default function HeroSection() {
         onUpdate: (self) => {
           const p = self.progress;
 
-          // If intro is still playing, finish it
-          if (intro.isActive()) {
+          // Ignore micro-scroll noise during intro
+          // (Lenis init and browser layout produce tiny progress values)
+          if (!introComplete && p < 0.03) return;
+
+          // If user scrolls meaningfully during intro, finish it
+          if (!introComplete && intro.isActive()) {
             intro.progress(1);
+            introComplete = true;
           }
 
           // Dissolve: seekStrength 1 → 0
