@@ -28,6 +28,9 @@ export async function svgToPointCloud(
 ): Promise<PointCloudResult> {
   // Fetch and parse SVG
   const response = await fetch(svgUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch SVG from ${svgUrl}: ${response.status}`);
+  }
   const svgText = await response.text();
 
   // Insert into a hidden container so browser computes geometry
