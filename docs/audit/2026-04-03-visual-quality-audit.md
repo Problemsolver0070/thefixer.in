@@ -12,8 +12,8 @@
 - [x] **2. Performance scaling can break text legibility** ✅ Fixed in `c6d0d99`
   Dynamic `_targetFloor` in ParticleSystem ensures `_activeCount` never drops below the number of targeted particles. Floor updates per phase: 8K (logo/text), 13K (combined).
 
-- [ ] **3. Force-completing the intro on scroll is jarring**
-  `HeroSection.tsx:296` — if the user scrolls during the intro and `progress > 0.03`, `intro.progress(1)` fires. This instant-completes a multi-second, multi-phase animation. Particles teleport to their final positions. Text snaps into existence. The entire cinematic moment is destroyed by a single scroll.
+- [x] **3. Force-completing the intro on scroll is jarring** ✅ Fixed in `8eafaf8`
+  Scroll during intro triggers `intro.timeScale(5)` instead of `intro.progress(1)`. All phases play at 5x speed (~2.4s) — no teleportation. Early returns prevent seek contention during fast-forward. `onLeave` kills any zombie timeline.
 
 - [ ] **4. Font race condition in `textToPointCloud`**
   `text-to-points.ts:39` creates a canvas and renders with `"Inter, Arial, Helvetica, sans-serif"`. If Inter hasn't loaded when this runs (it's a Google Font, loaded async via `next/font`), the canvas falls back to Arial. The point cloud shape will be subtly different — wrong letter widths, wrong spacing. No font-load guarantee.
