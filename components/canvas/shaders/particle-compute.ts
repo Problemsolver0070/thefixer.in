@@ -98,7 +98,8 @@ export function createParticleComputeShader(
     const scrollLift = vec3(float(0), uScrollProgress.mul(0.0001), float(0));
 
     // ---- Integrate forces into velocity ----
-    const totalForce = add(driftForce, mouseForce, boundaryForce, scrollPush, scrollLift);
+    // Chain binary add() calls — TSL add() may not support 5 args
+    const totalForce = add(add(add(add(driftForce, mouseForce), boundaryForce), scrollPush), scrollLift);
     vel.assign(add(mul(vel, uDamping), totalForce));
 
     // ---- Clamp velocity magnitude ----

@@ -49,6 +49,7 @@ export class CosmosEngine {
   private disposed = false;
 
   private unsubscribeScroll: (() => void) | null = null;
+  private _computeWarned = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -107,6 +108,14 @@ export class CosmosEngine {
 
     // ---- Render Pipeline with Bloom ----
     this.setupRenderPipeline();
+
+    console.log("[CosmosEngine] Initialized:", {
+      gpuTier: this.gpuTier,
+      initialParticles: initialCount,
+      maxParticles,
+      hasBloom: !!this.renderPipeline,
+      rendererType: this.renderer.constructor.name,
+    });
 
     // ---- Performance Monitor ----
     const perfConfig: PerformanceMonitorConfig = {
@@ -189,8 +198,12 @@ export class CosmosEngine {
     // ---- Run GPU compute ----
     try {
       this.renderer.compute(this.particleSystem.computeNode);
-    } catch {
+    } catch (e) {
       // compute may not be available on WebGL fallback
+      if (!this._computeWarned) {
+        console.warn("[CosmosEngine] Compute failed:", e);
+        this._computeWarned = true;
+      }
     }
 
     // ---- Render ----
