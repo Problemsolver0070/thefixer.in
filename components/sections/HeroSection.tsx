@@ -20,12 +20,43 @@ import { textToPointCloud } from "@/lib/text-to-points";
 import type { CosmosEngine } from "@/components/canvas/cosmos-engine";
 
 const LOGO_SVG_URL = "/logo/thefixer-mark.svg";
-const SHARED_POINT_COUNT = 8000;
-const TAGLINE_POINT_COUNT = 5000;
-const TEXT_WORLD_WIDTH = 20;
-const TAGLINE_WORLD_WIDTH = 22;
-const TEXT_Y_OFFSET = 1.5;
-const TAGLINE_Y_OFFSET = -2.5;
+const LOGO_POINT_COUNT = 8000;
+const LOGO_WORLD_SCALE = 14;
+
+/** Compute viewport-aware world dimensions for particle text */
+function getResponsiveDimensions() {
+  const aspectRatio = window.innerWidth / window.innerHeight;
+
+  // Camera FOV=60° at z=30 → visible height ≈ 34.64 units (constant)
+  // Visible width = visibleHeight * aspectRatio
+  const visibleHeight = 2 * 30 * Math.tan((60 * Math.PI) / 360);
+  const visibleWidth = visibleHeight * aspectRatio;
+
+  // Text should fill ~55% of visible width on desktop, ~85% on mobile portrait
+  const isPortrait = aspectRatio < 1;
+  const textFill = isPortrait ? 0.85 : 0.55;
+  const taglineFill = isPortrait ? 0.90 : 0.60;
+
+  const textWorldWidth = visibleWidth * textFill;
+  const taglineWorldWidth = visibleWidth * taglineFill;
+
+  // Y offsets: tighter on mobile (less vertical space relative to text size)
+  const textYOffset = isPortrait ? 1.0 : 1.5;
+  const taglineYOffset = isPortrait ? -1.8 : -2.5;
+
+  // Point counts: slightly fewer on very narrow screens for density
+  const textPointCount = isPortrait ? 6000 : 8000;
+  const taglinePointCount = isPortrait ? 4000 : 5000;
+
+  return {
+    textWorldWidth,
+    taglineWorldWidth,
+    textYOffset,
+    taglineYOffset,
+    textPointCount,
+    taglinePointCount,
+  };
+}
 
 export default function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -47,16 +78,19 @@ export default function HeroSection() {
         // Phase 1: Crosshair logo point cloud
         const logoCloud = await svgToPointCloud(
           LOGO_SVG_URL,
-          SHARED_POINT_COUNT,
-          14,
+          LOGO_POINT_COUNT,
+          LOGO_WORLD_SCALE,
         );
         engine.particles.setTargetPositions(logoCloud.positions, logoCloud.count);
+
+        // Compute responsive dimensions based on current viewport
+        const dims = getResponsiveDimensions();
 
         // Phase 2: "THE FIXER" text point cloud
         const textCloud = textToPointCloud(
           "THE FIXER",
-          SHARED_POINT_COUNT,
-          TEXT_WORLD_WIDTH,
+          dims.textPointCount,
+          dims.textWorldWidth,
           {
             fontWeight: 700,
             fontSize: 200,
@@ -64,17 +98,17 @@ export default function HeroSection() {
           },
         );
 
-        // Offset text positions UP (y + TEXT_Y_OFFSET)
+        // Offset text positions UP (y + textYOffset)
         for (let i = 0; i < textCloud.count; i++) {
-          textCloud.positions[i * 3 + 1] += TEXT_Y_OFFSET;
+          textCloud.positions[i * 3 + 1] += dims.textYOffset;
         }
         textCloudRef.current = textCloud;
 
         // Phase 3: Tagline point cloud
         const taglineCloud = textToPointCloud(
           "You've exhausted every option. That's why you're here.",
-          TAGLINE_POINT_COUNT,
-          TAGLINE_WORLD_WIDTH,
+          dims.taglinePointCount,
+          dims.taglineWorldWidth,
           {
             fontWeight: 400,
             fontSize: 100,
@@ -82,9 +116,9 @@ export default function HeroSection() {
           },
         );
 
-        // Offset tagline positions DOWN (y + TAGLINE_Y_OFFSET)
+        // Offset tagline positions DOWN (y + taglineYOffset)
         for (let i = 0; i < taglineCloud.count; i++) {
-          taglineCloud.positions[i * 3 + 1] += TAGLINE_Y_OFFSET;
+          taglineCloud.positions[i * 3 + 1] += dims.taglineYOffset;
         }
 
         // Combined buffer: text (0..textCount-1) + tagline (textCount..totalCount-1)
