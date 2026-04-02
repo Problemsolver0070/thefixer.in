@@ -52,6 +52,19 @@ export default function CosmosCanvas() {
     engineRef.current?.clearMouseInfluence();
   }, []);
 
+  /* ---- Touch handlers (finger attracts particles like mouse) ---- */
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    // Use first touch point — particle attraction follows finger
+    const touch = e.touches[0];
+    if (touch) {
+      engineRef.current?.setMousePosition(touch.clientX, touch.clientY);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    engineRef.current?.clearMouseInfluence();
+  }, []);
+
   /* ---- Device orientation handler for mobile gyro ---- */
   const handleOrientation = useCallback((e: DeviceOrientationEvent) => {
     if (e.gamma == null || e.beta == null) return;
@@ -106,6 +119,11 @@ export default function CosmosCanvas() {
         window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
         window.addEventListener("resize", handleResize, { passive: true });
 
+        // Touch interaction — finger attracts particles like mouse cursor
+        window.addEventListener("touchmove", handleTouchMove, { passive: true });
+        window.addEventListener("touchend", handleTouchEnd, { passive: true });
+        window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
         // Attach one-shot touchstart listener for iOS gyroscope permission
         window.addEventListener("touchstart", requestGyro, { once: true });
       } catch (err) {
@@ -121,6 +139,9 @@ export default function CosmosCanvas() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
       window.removeEventListener("deviceorientation", handleOrientation);
       window.removeEventListener("touchstart", requestGyro);
 
@@ -128,7 +149,7 @@ export default function CosmosCanvas() {
       engine.dispose();
       engineRef.current = null;
     };
-  }, [handleMouseMove, handleMouseLeave, handleOrientation, handleResize]);
+  }, [handleMouseMove, handleMouseLeave, handleTouchMove, handleTouchEnd, handleOrientation, handleResize]);
 
   return (
     <canvas
