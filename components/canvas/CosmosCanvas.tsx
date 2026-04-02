@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { CosmosEngine } from "./cosmos-engine";
+import { setCosmosEngine } from "@/lib/cosmos-ref";
 
 /* ------------------------------------------------------------------ */
 /*  iOS DeviceOrientation permission helper                           */
@@ -98,6 +99,7 @@ export default function CosmosCanvas() {
           return;
         }
         engine.start();
+        setCosmosEngine(engine);
 
         // Attach event listeners after successful init
         window.addEventListener("mousemove", handleMouseMove, { passive: true });
@@ -122,6 +124,7 @@ export default function CosmosCanvas() {
       window.removeEventListener("deviceorientation", handleOrientation);
       window.removeEventListener("touchstart", requestGyro);
 
+      setCosmosEngine(null);
       engine.dispose();
       engineRef.current = null;
     };
