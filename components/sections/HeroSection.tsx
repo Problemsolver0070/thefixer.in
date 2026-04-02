@@ -3,47 +3,64 @@
 /**
  * HeroSection — "Cosmic Emergence"
  *
- * Auto-play emergence timeline:
- *   void → particles drift → edge glow → convergence → logo → gold pulse → tagline
+ * Multi-phase auto-play emergence timeline:
+ *   Phase 1: void → particles drift → edge glow → convergence → crosshair logo → gold pulse
+ *   Phase 2: target swap → particles rearrange into "THE FIXER" text → gold flash
+ *   Phase 3: tagline fade-in → scroll indicator
  *
  * Scroll-driven dissolve:
- *   As user scrolls past hero, seekStrength → 0 and logo dissolves back to particles.
+ *   As user scrolls past hero, seekStrength → 0 and particles dissolve back to drift.
  */
 
 import { useRef, useEffect, useState } from "react";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap-setup";
 import { onEngineReady } from "@/lib/cosmos-ref";
 import { svgToPointCloud } from "@/lib/svg-to-points";
+import { textToPointCloud } from "@/lib/text-to-points";
 import type { CosmosEngine } from "@/components/canvas/cosmos-engine";
 
 const LOGO_SVG_URL = "/logo/thefixer-mark.svg";
-const LOGO_POINT_COUNT = 5000;
+const SHARED_POINT_COUNT = 8000;
+const TEXT_WORLD_WIDTH = 20;
 
 export default function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const edgeGlowRef = useRef<HTMLDivElement>(null);
-  const brandNameRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<CosmosEngine | null>(null);
+  const textCloudRef = useRef<{ positions: Float32Array; count: number } | null>(null);
   const [ready, setReady] = useState(false);
 
-  // Load logo and initialize target positions when engine is ready
   useEffect(() => {
     const unsubscribe = onEngineReady(async (engine) => {
       engineRef.current = engine;
 
       try {
-        const { positions, count } = await svgToPointCloud(
+        // Load crosshair logo point cloud (Phase 1 target)
+        const logoCloud = await svgToPointCloud(
           LOGO_SVG_URL,
-          LOGO_POINT_COUNT,
-          14, // world-space scale (logo ~14 units wide)
+          SHARED_POINT_COUNT,
+          14,
         );
-        engine.particles.setTargetPositions(positions, count);
+        engine.particles.setTargetPositions(logoCloud.positions, logoCloud.count);
+
+        // Generate text point cloud (Phase 2 target)
+        const textCloud = textToPointCloud(
+          "THE FIXER",
+          SHARED_POINT_COUNT,
+          TEXT_WORLD_WIDTH,
+          {
+            fontWeight: 700,
+            fontSize: 200,
+            letterSpacing: 24,
+          },
+        );
+        textCloudRef.current = textCloud;
+
         setReady(true);
       } catch (err) {
-        console.error("[HeroSection] Failed to load logo point cloud:", err);
-        // Degrade gracefully — show text without logo animation
+        console.error("[HeroSection] Failed to load point clouds:", err);
         setReady(true);
       }
     });
@@ -51,22 +68,18 @@ export default function HeroSection() {
     return unsubscribe;
   }, []);
 
-  // Auto-play emergence timeline + scroll dissolve
   useGSAP(
     () => {
       if (!ready || !engineRef.current || !sectionRef.current) return;
 
       const engine = engineRef.current;
+      const textCloud = textCloudRef.current;
 
-      // ---- Proxy objects for GSAP to tween ----
       const seekProxy = { value: 0 };
       const glowProxy = { value: 0 };
 
-      // Track whether intro has finished — prevents ScrollTrigger
-      // from force-completing the intro due to Lenis micro-scroll events.
       let introComplete = false;
 
-      // ---- AUTO-PLAY EMERGENCE TIMELINE ----
       const intro = gsap.timeline({
         delay: 0.8,
         onComplete: () => {
@@ -74,14 +87,16 @@ export default function HeroSection() {
         },
       });
 
-      // 1. Edge glow fades in
+      // ============================================================
+      // PHASE 1: Crosshair Logo Convergence
+      // ============================================================
+
       intro.to(edgeGlowRef.current, {
         opacity: 0.7,
         duration: 2,
         ease: "power1.in",
       });
 
-      // 2. Particles converge into logo (overlapping with glow)
       intro.to(
         seekProxy,
         {
@@ -93,7 +108,6 @@ export default function HeroSection() {
         "<0.5",
       );
 
-      // 3. Gold pulse
       intro.to(
         glowProxy,
         {
@@ -105,29 +119,64 @@ export default function HeroSection() {
         ">-0.3",
       );
       intro.to(glowProxy, {
-        value: 0.15, // settle to subtle warm glow
+        value: 0.15,
         duration: 1.5,
         ease: "power2.out",
         onUpdate: () => engine.particles.setLogoGlow(glowProxy.value),
       });
 
-      // 4. Brand name — deliberate pause after gold pulse, then slow rise
-      intro.fromTo(
-        brandNameRef.current,
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 2.0, ease: "power3.out" },
-        ">1.0", // 1s beat after glow settles — let the logo breathe
-      );
+      // ============================================================
+      // PHASE 2: Text Formation
+      // ============================================================
 
-      // 5. Tagline — staggered, starts while brand name is mid-reveal
-      intro.fromTo(
-        taglineRef.current,
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 1.5, ease: "power3.out" },
-        "<1.0", // 1s into brand name animation
-      );
+      if (textCloud) {
+        // Swap target positions: crosshair → text (after 1s beat)
+        intro.call(
+          () => {
+            engine.particles.setTargetPositions(
+              textCloud.positions,
+              textCloud.count,
+            );
+          },
+          [],
+          ">1.0",
+        );
 
-      // 6. Scroll indicator — gentle fade after tagline lands
+        // Gold flash during rearrangement
+        intro.to(
+          glowProxy,
+          {
+            value: 0.5,
+            duration: 0.6,
+            ease: "power2.in",
+            onUpdate: () => engine.particles.setLogoGlow(glowProxy.value),
+          },
+          "<",
+        );
+        intro.to(glowProxy, {
+          value: 0.1,
+          duration: 1.5,
+          ease: "power2.out",
+          onUpdate: () => engine.particles.setLogoGlow(glowProxy.value),
+        });
+
+        // Tagline after particles settle
+        intro.fromTo(
+          taglineRef.current,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 1.5, ease: "power3.out" },
+          ">1.5",
+        );
+      } else {
+        intro.fromTo(
+          taglineRef.current,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 1.5, ease: "power3.out" },
+          ">1.0",
+        );
+      }
+
+      // Scroll indicator
       intro.fromTo(
         scrollIndicatorRef.current,
         { opacity: 0 },
@@ -136,9 +185,6 @@ export default function HeroSection() {
       );
 
       // ---- SCROLL-DRIVEN DISSOLVE ----
-      // When user scrolls the hero out of view, dissolve the logo.
-      // The progress threshold (0.03) prevents Lenis smooth scroll
-      // micro-events from triggering the dissolve during the intro.
       ScrollTrigger.create({
         trigger: sectionRef.current,
         start: "top top",
@@ -147,20 +193,15 @@ export default function HeroSection() {
         onUpdate: (self) => {
           const p = self.progress;
 
-          // Ignore micro-scroll noise during intro
-          // (Lenis init and browser layout produce tiny progress values)
           if (!introComplete && p < 0.03) return;
 
-          // If user scrolls meaningfully during intro, finish it
           if (!introComplete && intro.isActive()) {
             intro.progress(1);
             introComplete = true;
           }
 
-          // Dissolve: seekStrength 1 → 0
           engine.particles.setSeekStrength(1 - p);
-          // Fade glow out
-          engine.particles.setLogoGlow(Math.max(0, 0.15 * (1 - p * 2)));
+          engine.particles.setLogoGlow(Math.max(0, 0.1 * (1 - p * 2)));
         },
         onLeave: () => {
           engine.particles.setSeekStrength(0);
@@ -178,21 +219,12 @@ export default function HeroSection() {
       className="hero-section"
       data-section-index={0}
     >
-      {/* Edge glow overlay */}
       <div ref={edgeGlowRef} className="hero-edge-glow" />
 
-      {/* Center content */}
       <div className="hero-content">
-        {/* Logo area — particles form here (transparent, no DOM element needed) */}
         <div className="hero-logo-space" aria-hidden="true" />
 
-        <h1
-          ref={brandNameRef}
-          className="hero-brand-name"
-          style={{ opacity: 0 }}
-        >
-          THE FIXER
-        </h1>
+        <h1 className="sr-only">THE FIXER</h1>
 
         <p
           ref={taglineRef}
@@ -203,7 +235,6 @@ export default function HeroSection() {
         </p>
       </div>
 
-      {/* Scroll indicator */}
       <div
         ref={scrollIndicatorRef}
         className="hero-scroll-indicator"
