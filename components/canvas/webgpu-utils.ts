@@ -11,7 +11,7 @@ const TIER_CONFIG: Record<GPUTier["tier"], Omit<GPUTier, "tier" | "renderer">> =
   high: { maxParticles: 500_000, shaderComplexity: "full" },
   medium: { maxParticles: 200_000, shaderComplexity: "reduced" },
   low: { maxParticles: 100_000, shaderComplexity: "reduced" },
-  none: { maxParticles: 50_000, shaderComplexity: "minimal" },
+  none: { maxParticles: 30_000, shaderComplexity: "minimal" },
 };
 
 export async function detectGPUTier(): Promise<GPUTier> {

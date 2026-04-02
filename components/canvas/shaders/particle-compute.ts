@@ -1,11 +1,14 @@
 /**
- * GPU Compute Shader for particle physics using Three.js TSL (Three Shading Language).
+ * GPU Compute Shader for particle physics using Three.js TSL.
  *
- * Handles:
- * - Ambient drift (slow organic sine-wave movement)
- * - Mouse/cursor influence (gentle attraction)
- * - Velocity damping
- * - Soft boundary (push particles back when they drift too far)
+ * Uses StorageInstancedBufferAttribute + storage() for WebGL2 compatibility.
+ * The storage nodes wrap the same buffer used by the material.
+ *
+ * Movement: curl-noise-inspired flow field sampled at particle position,
+ * producing organic flowing paths (not oscillation).
+ *
+ * NOTE: GPU compute only works with WebGPU. For WebGL2 fallback,
+ * the engine uses ParticleSystem.cpuAnimate() instead.
  */
 import {
   Fn,
@@ -22,16 +25,15 @@ import {
   length,
   normalize,
   max,
-  min,
   clamp,
-  mix,
   hash,
+  If,
 } from "three/tsl";
 
 import type { StorageInstancedBufferAttribute } from "three/webgpu";
 
 /* ------------------------------------------------------------------ */
-/*  Uniform declarations (shared with the engine that updates them)   */
+/*  Uniform declarations                                              */
 /* ------------------------------------------------------------------ */
 
 export const uTime = /* @__PURE__ */ uniform(float(0));
@@ -40,9 +42,8 @@ export const uMouseX = /* @__PURE__ */ uniform(float(0));
 export const uMouseY = /* @__PURE__ */ uniform(float(0));
 export const uMouseInfluence = /* @__PURE__ */ uniform(float(0));
 export const uScrollProgress = /* @__PURE__ */ uniform(float(0));
-export const uDriftSpeed = /* @__PURE__ */ uniform(float(0.0003));
-export const uBoundaryRadius = /* @__PURE__ */ uniform(float(20));
-export const uDamping = /* @__PURE__ */ uniform(float(0.98));
+export const uDriftSpeed = /* @__PURE__ */ uniform(float(1.0));
+export const uBoundaryRadius = /* @__PURE__ */ uniform(float(26));
 
 /* ------------------------------------------------------------------ */
 /*  Build compute kernel                                              */
@@ -55,65 +56,101 @@ export function createParticleComputeShader(
   const posStorage = storage(posBuffer, "vec3", posBuffer.count);
   const velStorage = storage(velBuffer, "vec3", velBuffer.count);
 
-  const computeFn = Fn(() => {
-    const idx = instanceIndex;
+  const computeUpdate = Fn(() => {
+    const pos = posStorage.element(instanceIndex);
+    const vel = velStorage.element(instanceIndex);
 
-    // Current position & velocity
-    const pos = posStorage.element(idx);
-    const vel = velStorage.element(idx);
+    // Per-particle deterministic phase offsets
+    const h0 = hash(instanceIndex);
+    const h1 = hash(instanceIndex.add(3571));
 
-    // Per-particle phase offset derived from index (deterministic)
-    const phase = hash(idx).mul(6.2831);
+    // ================================================================
+    // CURL-NOISE FLOW FIELD
+    // ================================================================
+    // Sampled at particle's CURRENT POSITION — as it moves, force
+    // direction changes, producing organic flowing paths (not oscillation).
+    const px = pos.x.mul(0.08);
+    const py = pos.y.mul(0.08);
+    const pz = pos.z.mul(0.08);
+    const t = uTime.mul(0.15);
 
-    // ---- Ambient drift (organic sine-wave movement, scaled by deltaTime) ----
-    const driftX = sin(add(uTime.mul(0.4), phase)).mul(uDriftSpeed).mul(uDeltaTime);
-    const driftY = cos(add(uTime.mul(0.3), phase.mul(1.3))).mul(uDriftSpeed).mul(uDeltaTime);
-    const driftZ = sin(add(uTime.mul(0.2), phase.mul(0.7))).mul(
-      uDriftSpeed.mul(0.5),
-    ).mul(uDeltaTime);
-    const driftForce = vec3(driftX, driftY, driftZ);
+    // Two scalar fields
+    const a0 = sin(add(px, t.mul(0.7)).add(h0.mul(1.5)));
+    const a1 = cos(add(py.mul(1.3), t.mul(0.5)));
+    const a2 = sin(add(pz.mul(0.9), t.mul(0.6)).add(h1));
 
-    // ---- Mouse influence (gentle attraction, scaled by deltaTime) ----
+    const b0 = cos(add(px.mul(0.7), t.mul(0.4)));
+    const b1 = sin(add(py.mul(1.1), t.mul(0.8)));
+    const b2 = cos(add(pz.mul(1.2), t.mul(0.3)));
+
+    // Cross product → divergence-free flow direction
+    const curlX = a1.mul(b2).sub(a2.mul(b1));
+    const curlY = a2.mul(b0).sub(a0.mul(b2));
+    const curlZ = a0.mul(b1).sub(a1.mul(b0));
+
+    // Per-particle speed variation (0.5x to 1.5x)
+    const speedMul = h0.add(0.5);
+
+    const driftForce = vec3(
+      curlX.mul(uDriftSpeed).mul(speedMul),
+      curlY.mul(uDriftSpeed).mul(speedMul),
+      curlZ.mul(uDriftSpeed).mul(speedMul),
+    );
+
+    // ================================================================
+    // MOUSE INFLUENCE
+    // ================================================================
     const mousePos = vec3(uMouseX, uMouseY, float(0));
     const toMouse = sub(mousePos, pos);
     const mouseDist = max(length(toMouse), float(0.001));
-    // Attraction falls off with distance squared, capped
     const mouseStrength = clamp(
-      uMouseInfluence.mul(float(0.5)).div(add(mouseDist, float(1.0))),
+      uMouseInfluence
+        .mul(float(8.0))
+        .div(add(mouseDist.mul(mouseDist), float(1.0))),
       float(0),
-      float(0.01),
+      float(2.0),
     );
-    const mouseForce = mul(normalize(toMouse), mouseStrength).mul(uDeltaTime);
+    const mouseForce = mul(normalize(toMouse), mouseStrength);
 
-    // ---- Soft boundary (push particles back gently) ----
+    // ================================================================
+    // SOFT BOUNDARY
+    // ================================================================
     const distFromCenter = max(length(pos), float(0.001));
-    const overflow = sub(distFromCenter, uBoundaryRadius).div(
-      uBoundaryRadius,
-    );
-    const boundaryStrength = clamp(overflow, float(0), float(1)).mul(0.005);
+    const overflow = sub(distFromCenter, uBoundaryRadius).div(float(4.0));
+    const boundaryStrength = clamp(overflow, float(0), float(1)).mul(3.0);
     const boundaryForce = mul(normalize(pos).negate(), boundaryStrength);
 
-    // ---- Scroll influence (slight outward push + vertical drift) ----
-    const scrollPush = mul(normalize(pos), uScrollProgress.mul(0.0002));
-    const scrollLift = vec3(float(0), uScrollProgress.mul(0.0001), float(0));
+    // Gentle center pull to prevent drift-away
+    const centerPull = mul(normalize(pos).negate(), float(0.02));
 
-    // ---- Integrate forces into velocity ----
-    // Chain binary add() calls — TSL add() may not support 5 args
-    const totalForce = add(add(add(add(driftForce, mouseForce), boundaryForce), scrollPush), scrollLift);
-    vel.assign(add(mul(vel, uDamping), totalForce));
+    // ================================================================
+    // SCROLL INFLUENCE
+    // ================================================================
+    const scrollPush = mul(normalize(pos), uScrollProgress.mul(0.3));
+    const scrollLift = vec3(float(0), uScrollProgress.mul(0.15), float(0));
 
-    // ---- Clamp velocity magnitude ----
-    const speed = max(length(vel), float(0.0001));
-    const maxSpeed = float(0.05);
-    const clampedVel = mul(
-      normalize(vel),
-      min(speed, maxSpeed),
+    // ================================================================
+    // VELOCITY INTEGRATION (semi-implicit Euler)
+    // ================================================================
+    const damping = float(0.992);
+    const totalForce = add(
+      add(add(add(driftForce, mouseForce), boundaryForce), centerPull),
+      add(scrollPush, scrollLift),
     );
-    vel.assign(clampedVel);
+    vel.assign(add(mul(vel, damping), totalForce.mul(uDeltaTime)));
 
-    // ---- Update position (scaled by deltaTime for frame-rate independence) ----
+    // Clamp velocity
+    const speed = max(length(vel), float(0.0001));
+    const maxSpeed = float(4.0);
+    If(speed.greaterThan(maxSpeed), () => {
+      vel.assign(mul(normalize(vel), maxSpeed));
+    });
+
+    // Update position
     pos.addAssign(vel.mul(uDeltaTime));
-  });
+  })()
+    .compute(posBuffer.count)
+    .setName("Update Particles");
 
-  return computeFn().compute(posBuffer.count);
+  return { posStorage, computeUpdate };
 }

@@ -1,11 +1,15 @@
 /**
  * Particle material using SpriteNodeMaterial with TSL.
  *
+ * Reads positions from a storage() node wrapping the same
+ * StorageInstancedBufferAttribute that the compute shader writes to.
+ * This works in both WebGPU and WebGL2 modes.
+ *
  * Features:
  * - Additive blending for ethereal glow
  * - Per-particle color variation (ethereal blue to cyan range)
  * - Scroll-driven color temperature shift (toward gold)
- * - Breathing/pulsing scale animation
+ * - Breathing/pulsing brightness animation
  * - Distance-based opacity fade
  */
 import {
@@ -21,17 +25,14 @@ import {
   vec4,
   color,
   sin,
-  cos,
   mul,
   add,
-  sub,
   mix,
   clamp,
   smoothstep,
   length,
   hash,
   instanceIndex,
-  positionWorld,
   storage,
 } from "three/tsl";
 
@@ -45,7 +46,7 @@ import type { StorageInstancedBufferAttribute } from "three/webgpu";
 
 export const uMatTime = /* @__PURE__ */ uniform(float(0));
 export const uMatScrollProgress = /* @__PURE__ */ uniform(float(0));
-export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.015));
+export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.04));
 
 /* ------------------------------------------------------------------ */
 /*  Colors                                                            */
@@ -67,21 +68,20 @@ export function createParticleMaterial(
   material.depthWrite = false;
   material.blending = AdditiveBlending;
 
-  // Storage reference for reading positions in the fragment shader
+  // Create a storage node wrapping the same buffer the compute writes to.
+  // .toAttribute() makes it readable as a vertex attribute in WebGL2.
   const posStorage = storage(posBuffer, "vec3", posBuffer.count);
-
-  // Tell the SpriteNodeMaterial where to place each sprite instance
   material.positionNode = posStorage.toAttribute();
 
   // Per-particle deterministic randomness
   const particleHash = hash(instanceIndex);
-  const particleHash2 = hash(add(instanceIndex, float(7919))); // second random channel
+  const particleHash2 = hash(add(instanceIndex, float(7919)));
 
-  // ---- Color: blend between ethereal blue and cyan, shift to gold with scroll ----
+  // ---- Color: blend ethereal blue → cyan, shift toward gold on scroll ----
   const baseColor = mix(
     color(etherealBlue),
     color(etherealGlow),
-    particleHash, // per-particle variation
+    particleHash,
   );
   const scrollShiftedColor = mix(
     baseColor,
@@ -90,30 +90,28 @@ export function createParticleMaterial(
   );
 
   // ---- Breathing / pulsing brightness ----
-  const breathPhase = add(uMatTime.mul(0.8), particleHash.mul(6.2831));
-  const breathFactor = add(
-    float(0.7),
-    mul(sin(breathPhase), float(0.3)),
-  );
+  const breathPhase = add(uMatTime.mul(0.5), particleHash.mul(6.2831));
+  const breathFactor = add(float(0.8), mul(sin(breathPhase), float(0.2)));
 
   // ---- Distance-based opacity fade ----
   const pos = posStorage.element(instanceIndex);
   const dist = length(pos);
-  // Fade particles that are very far from center
-  const distanceFade = smoothstep(float(25), float(15), dist);
-  // Slight boost for particles near center (but don't over-expose)
-  const centerBoost = smoothstep(float(0), float(3), dist);
+  const distanceFade = smoothstep(float(30), float(18), dist);
+  const centerBoost = smoothstep(float(0), float(6), dist);
 
-  // ---- Final opacity ----
+  // ---- Final opacity (low per-particle — additive blending accumulates) ----
   const baseAlpha = mul(
-    float(0.6),
+    float(0.12),
     breathFactor,
     distanceFade,
     mix(float(0.4), float(1.0), centerBoost),
   );
-  // Dimmer particles via hash (variety)
   const alphaVariation = mix(float(0.3), float(1.0), particleHash2);
-  const finalAlpha = clamp(mul(baseAlpha, alphaVariation), float(0.02), float(0.9));
+  const finalAlpha = clamp(
+    mul(baseAlpha, alphaVariation),
+    float(0.008),
+    float(0.2),
+  );
 
   // ---- Pulsing scale ----
   const scaleBreath = add(
@@ -123,12 +121,7 @@ export function createParticleMaterial(
   const particleScale = mul(uMatParticleSize, scaleBreath);
 
   // Assign to material
-  material.colorNode = vec4(
-    scrollShiftedColor.mul(breathFactor),
-    finalAlpha,
-  );
-
-  // Scale via sizeAttenuation (SpriteNodeMaterial uses scaleNode)
+  material.colorNode = vec4(scrollShiftedColor, finalAlpha);
   material.scaleNode = vec3(particleScale, particleScale, particleScale);
 
   return material;
