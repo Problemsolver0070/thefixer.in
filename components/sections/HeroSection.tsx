@@ -212,6 +212,7 @@ export default function HeroSection() {
       const glowProxy = { value: 0 };
 
       let introComplete = false;
+      let fastForwarded = false;
 
       const intro = gsap.timeline({
         delay: 0.8,
@@ -341,15 +342,22 @@ export default function HeroSection() {
 
           if (!introComplete && p < 0.03) return;
 
-          if (!introComplete && intro.isActive()) {
-            intro.progress(1);
-            introComplete = true;
+          if (!introComplete && intro.isActive() && !fastForwarded) {
+            intro.timeScale(5);
+            fastForwarded = true;
+            return;
           }
+
+          if (!introComplete) return;
 
           engine.particles.setSeekStrength(1 - p);
           engine.particles.setLogoGlow(Math.max(0, 0.08 * (1 - p * 2)));
         },
         onLeave: () => {
+          if (!introComplete) {
+            intro.progress(1).pause();
+            introComplete = true;
+          }
           engine.particles.setSeekStrength(0);
           engine.particles.setLogoGlow(0);
         },
