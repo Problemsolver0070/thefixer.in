@@ -24,6 +24,7 @@ import {
   uScrollProgress,
   uDriftSpeed,
   uBoundaryRadius,
+  uSeekStrength,
 } from "./shaders/particle-compute";
 
 import {
@@ -31,6 +32,7 @@ import {
   uMatTime,
   uMatScrollProgress,
   uMatParticleSize,
+  uMatLogoGlow,
 } from "./shaders/particle-material";
 
 /* ------------------------------------------------------------------ */
@@ -44,6 +46,7 @@ export class ParticleSystem {
   /** GPU storage buffers (also readable as vertex attributes in WebGL2) */
   private posBuffer: StorageInstancedBufferAttribute;
   private velBuffer: StorageInstancedBufferAttribute;
+  private targetBuffer: StorageInstancedBufferAttribute;
 
   /** GPU compute kernel (WebGPU only) */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +64,8 @@ export class ParticleSystem {
   private _mouseY = 0;
   private _mouseInfluence = 0;
   private _scrollProgress = 0;
+  private _seekStrength = 0;
+  private _logoGlow = 0;
 
   private disposed = false;
 
@@ -81,6 +86,12 @@ export class ParticleSystem {
       3,
     );
 
+    // vec4: xyz = target position, w = weight (0 = no target, 1 = logo particle)
+    this.targetBuffer = new StorageInstancedBufferAttribute(
+      this.maxParticles,
+      4, // vec4
+    );
+
     // ---- Initialize positions on CPU (works for both WebGPU & WebGL2) ----
     this.initPositions();
 
@@ -88,6 +99,7 @@ export class ParticleSystem {
     const { computeUpdate } = createParticleComputeShader(
       this.posBuffer,
       this.velBuffer,
+      this.targetBuffer,
     );
     this.computeUpdate = computeUpdate;
 
@@ -151,7 +163,6 @@ export class ParticleSystem {
     const count = this._activeCount;
     const driftSpeed = PARTICLE_CONFIG.driftSpeed;
     const boundaryRadius = 26;
-    const damping = 0.992;
     const maxSpeed = 4.0;
     const t = time * 0.15;
 
@@ -159,6 +170,13 @@ export class ParticleSystem {
     const my = this._mouseY;
     const mInf = this._mouseInfluence;
     const scroll = this._scrollProgress;
+
+    const seekStr = this._seekStrength;
+    const targetArray = this.targetBuffer.array as Float32Array;
+    const seekMag = 3.0;
+    // Higher damping during convergence (lerp 0.992 → 0.94)
+    const damping = seekStr > 0.01 ? 0.992 - seekStr * 0.052 : 0.992;
+    const driftMul = 1.0 - seekStr * 0.85;
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
@@ -183,6 +201,11 @@ export class ParticleSystem {
       let fx = (a1 * b2 - a2 * b1) * driftSpeed;
       let fy = (a2 * b0 - a0 * b2) * driftSpeed;
       let fz = (a0 * b1 - a1 * b0) * driftSpeed;
+
+      // Reduce drift during convergence so it doesn't fight the seek
+      fx *= driftMul;
+      fy *= driftMul;
+      fz *= driftMul;
 
       // ---- Mouse influence ----
       if (mInf > 0) {
@@ -220,6 +243,20 @@ export class ParticleSystem {
         fx += (px / dist) * scroll * 0.3;
         fy += (py / dist) * scroll * 0.15 + scroll * 0.15;
         fz += (pz / dist) * scroll * 0.3;
+      }
+
+      // ---- Seek target (logo convergence) ----
+      if (seekStr > 0.01) {
+        const i4 = i * 4;
+        const tw = targetArray[i4 + 3]; // weight
+        if (tw > 0.001) {
+          const tx = targetArray[i4];
+          const ty = targetArray[i4 + 1];
+          const tz = targetArray[i4 + 2];
+          fx += (tx - px) * seekStr * seekMag * tw;
+          fy += (ty - py) * seekStr * seekMag * tw;
+          fz += (tz - pz) * seekStr * seekMag * tw;
+        }
       }
 
       // ---- Velocity integration ----
@@ -277,6 +314,45 @@ export class ParticleSystem {
     this._scrollProgress = progress;
     uScrollProgress.value = progress;
     uMatScrollProgress.value = progress;
+  }
+
+  /**
+   * Load logo point cloud as target positions for the first `count` particles.
+   * Remaining particles get weight 0 (unaffected by seek).
+   */
+  setTargetPositions(logoPoints: Float32Array, logoPointCount: number): void {
+    const targetArray = this.targetBuffer.array as Float32Array;
+
+    // First logoPointCount particles: assign logo positions with weight 1
+    for (let i = 0; i < logoPointCount && i < this.maxParticles; i++) {
+      const i4 = i * 4;
+      const i3 = i * 3;
+      targetArray[i4] = logoPoints[i3];      // x
+      targetArray[i4 + 1] = logoPoints[i3 + 1]; // y
+      targetArray[i4 + 2] = logoPoints[i3 + 2]; // z
+      targetArray[i4 + 3] = 1.0;                // weight = active
+    }
+
+    // Remaining particles: weight 0 (no seek target)
+    for (let i = logoPointCount; i < this.maxParticles; i++) {
+      const i4 = i * 4;
+      targetArray[i4] = 0;
+      targetArray[i4 + 1] = 0;
+      targetArray[i4 + 2] = 0;
+      targetArray[i4 + 3] = 0; // weight = inactive
+    }
+
+    this.targetBuffer.needsUpdate = true;
+  }
+
+  setSeekStrength(strength: number): void {
+    this._seekStrength = Math.max(0, Math.min(1, strength));
+    uSeekStrength.value = this._seekStrength;
+  }
+
+  setLogoGlow(intensity: number): void {
+    this._logoGlow = intensity;
+    uMatLogoGlow.value = intensity;
   }
 
   update(time: number, deltaTime: number): void {
