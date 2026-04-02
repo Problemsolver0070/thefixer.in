@@ -12,7 +12,7 @@ export const COLORS = {
 
 export const PARTICLE_CONFIG = {
   maxParticles: 500_000,
-  mobileBaseline: 100_000,
+  mobileBaseline: 80_000,
   desktopBaseline: 200_000,
   minFps: 55,
   targetFps: 60,
