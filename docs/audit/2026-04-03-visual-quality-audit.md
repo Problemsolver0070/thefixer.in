@@ -31,8 +31,8 @@
 - [x] **7. Text particles are flat — zero depth** ✅ Fixed in `b0de361`
   ±0.3 z-jitter added to both `svgToPointCloud` and `textToPointCloud`. Text formations now have subtle 3D volume. Jitter preserved through `rescaleCloud()`.
 
-- [ ] **8. Tagline particle density is likely too low to read**
-  "You've exhausted every option. That's why you're here." is 52 characters at 5,000 particles (desktop) or 4,000 (mobile). That's ~77-96 particles per character. "THE FIXER" gets ~889 per character. The tagline will look like a fuzzy smear rather than readable text, especially on mobile.
+- [x] **8. Tagline particle density is likely too low to read** ✅ Fixed in `5683718`
+  `TAGLINE_POINT_COUNT` increased from 5,000 to 8,000 (~154 particles/char). Combined phase floor now 16K (8K text + 8K tagline).
 
 - [ ] **9. No loading state — cold void on entry**
   Engine init (GPU detection, renderer init, shader compile, SVG fetch, point cloud generation) takes 1-2 seconds. During this, the user stares at pitch-black with zero feedback. No shimmer, no hint that something is coming. Dead air on a first-impression site.
