@@ -125,14 +125,28 @@ export default function CosmosCanvas() {
     engineRef.current?.clearMouseInfluence();
   }, []);
 
-  /* ---- Device orientation handler for mobile gyro ---- */
+  /* ---- Device orientation: adaptive centering gyro ---- */
+  const gyroBaseRef = useRef<{ beta: number; gamma: number } | null>(null);
+
   const handleOrientation = useCallback((e: DeviceOrientationEvent) => {
     if (e.gamma == null || e.beta == null) return;
 
-    // gamma: left-right tilt [-90, 90]
-    // beta: front-back tilt [-180, 180]
-    const nx = (e.gamma / 90) * window.innerWidth * 0.5 + window.innerWidth / 2;
-    const ny = ((e.beta - 45) / 90) * window.innerHeight * 0.5 + window.innerHeight / 2;
+    // Calibrate on first reading — user's current holding angle becomes center
+    if (!gyroBaseRef.current) {
+      gyroBaseRef.current = { beta: e.beta, gamma: e.gamma };
+    }
+
+    const base = gyroBaseRef.current;
+    const relativeGamma = e.gamma - base.gamma;
+    const relativeBeta = e.beta - base.beta;
+
+    // Slow adaptive drift — baseline follows gradual posture changes (1% per reading)
+    base.beta += (e.beta - base.beta) * 0.01;
+    base.gamma += (e.gamma - base.gamma) * 0.01;
+
+    // Map relative tilt to screen position (±45° range)
+    const nx = (relativeGamma / 45) * window.innerWidth * 0.5 + window.innerWidth / 2;
+    const ny = (relativeBeta / 45) * window.innerHeight * 0.5 + window.innerHeight / 2;
 
     engineRef.current?.setMousePosition(nx, ny);
   }, []);
