@@ -48,6 +48,7 @@ export const uMatTime = /* @__PURE__ */ uniform(float(0));
 export const uMatScrollProgress = /* @__PURE__ */ uniform(float(0));
 export const uMatParticleSize = /* @__PURE__ */ uniform(float(0.04));
 export const uMatLogoGlow = /* @__PURE__ */ uniform(float(0));
+export const uNoBloom = /* @__PURE__ */ uniform(float(0));
 
 /* ------------------------------------------------------------------ */
 /*  Colors                                                            */
@@ -115,11 +116,15 @@ export function createParticleMaterial(
     distanceFade,
     mix(float(0.4), float(1.0), centerBoost),
   );
+  // Boost brightness when bloom is absent (bloom normally amplifies additive glow)
+  const bloomCompensation = mix(float(1.0), float(2.5), uNoBloom);
+  const compensatedAlpha = mul(baseAlpha, bloomCompensation);
   const alphaVariation = mix(float(0.3), float(1.0), particleHash2);
+  const maxAlpha = mix(float(0.2), float(0.5), uNoBloom);
   const finalAlpha = clamp(
-    mul(baseAlpha, alphaVariation),
+    mul(compensatedAlpha, alphaVariation),
     float(0.008),
-    float(0.2),
+    maxAlpha,
   );
 
   // ---- Pulsing scale ----
@@ -130,10 +135,11 @@ export function createParticleMaterial(
   const particleScale = mul(uMatParticleSize, scaleBreath);
 
   // Boost alpha during logo glow for brighter convergence
+  const maxGlowAlpha = mix(float(0.35), float(0.7), uNoBloom);
   const glowAlpha = clamp(
     add(finalAlpha, uMatLogoGlow.mul(float(0.15))),
     float(0.008),
-    float(0.35),
+    maxGlowAlpha,
   );
 
   // Assign to material

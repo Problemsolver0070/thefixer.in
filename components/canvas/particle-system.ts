@@ -33,6 +33,7 @@ import {
   uMatScrollProgress,
   uMatParticleSize,
   uMatLogoGlow,
+  uNoBloom,
 } from "./shaders/particle-material";
 
 /* ------------------------------------------------------------------ */
@@ -359,6 +360,10 @@ export class ParticleSystem {
   setLogoGlow(intensity: number): void {
     this._logoGlow = intensity;
     uMatLogoGlow.value = intensity;
+  }
+
+  setNoBloom(): void {
+    uNoBloom.value = 1.0;
   }
 
   update(time: number, deltaTime: number): void {
