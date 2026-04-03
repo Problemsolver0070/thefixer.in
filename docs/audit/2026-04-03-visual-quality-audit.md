@@ -28,8 +28,8 @@
 
 ## B. Visual Quality Gaps
 
-- [ ] **7. Text particles are flat — zero depth**
-  Both `svgToPointCloud` and `textToPointCloud` set `z = 0` for every point. The crosshair, "THE FIXER," and tagline are perfectly flat planes. In a cosmic 3D space, this looks paper-thin. A subtle z-jitter (±0.3 units) would give text formations volume without hurting legibility.
+- [x] **7. Text particles are flat — zero depth** ✅ Fixed in `b0de361`
+  ±0.3 z-jitter added to both `svgToPointCloud` and `textToPointCloud`. Text formations now have subtle 3D volume. Jitter preserved through `rescaleCloud()`.
 
 - [ ] **8. Tagline particle density is likely too low to read**
   "You've exhausted every option. That's why you're here." is 52 characters at 5,000 particles (desktop) or 4,000 (mobile). That's ~77-96 particles per character. "THE FIXER" gets ~889 per character. The tagline will look like a fuzzy smear rather than readable text, especially on mobile.
