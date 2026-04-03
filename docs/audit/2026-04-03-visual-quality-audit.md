@@ -78,8 +78,8 @@
 - [x] **20. Metadata is minimal** ✅ Fixed in `c4ea38b`
   Added Open Graph (title, description, url, siteName), Twitter card (summary_large_image), theme-color (#1a1625), Apple web app meta, metadataBase.
 
-- [ ] **21. No `contain` or compositing hints**
-  `.cosmos-canvas` and `.content-layer` lack `contain: layout style paint` or `will-change` properties. Explicit hints help the GPU compositor, especially on mobile.
+- [x] **21. No `contain` or compositing hints** ✅ Fixed in `4cb8498`
+  `.cosmos-canvas`: `contain: strict` + `will-change: contents`. `.content-layer`: `contain: layout style`. Isolates compositing layers for GPU.
 
 - [ ] **22. `CosmosBackground` wrapper is thin**
   Just a dynamic import wrapper. Could handle: fallback UI while engine loads, error boundary if WebGL2 fails, static image fallback for devices with no GPU.
