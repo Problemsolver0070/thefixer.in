@@ -21,10 +21,10 @@ import type { CosmosEngine } from "@/components/canvas/cosmos-engine";
 
 const LOGO_SVG_URL = "/logo/thefixer-mark.svg";
 
-/** Fixed particle counts — never change with viewport. More particles = denser text. */
+/** Fixed particle counts — 95% of 30K budget dedicated to text formations. */
 const LOGO_POINT_COUNT = 8000;
-const TEXT_POINT_COUNT = 8000;
-const TAGLINE_POINT_COUNT = 8000;
+const TEXT_POINT_COUNT = 16000;
+const TAGLINE_POINT_COUNT = 12500;
 
 /** Base positions stored before Y-offset, used for deterministic rescaling. */
 interface BaseCloud {

@@ -232,10 +232,14 @@ export class ParticleSystem {
       let fy = (a2 * b0 - a0 * b2) * driftSpeed;
       let fz = (a0 * b1 - a1 * b0) * driftSpeed;
 
-      // Reduce drift during convergence so it doesn't fight the seek
-      fx *= driftMul;
-      fy *= driftMul;
-      fz *= driftMul;
+      // Per-particle drift: targeted particles reduce drift (need to lock),
+      // untargeted particles keep full drift and flow freely around text
+      const i4 = i * 4;
+      const tw = targetArray[i4 + 3];
+      const particleDrift = tw > 0.001 ? driftMul : 1.2;
+      fx *= particleDrift;
+      fy *= particleDrift;
+      fz *= particleDrift;
 
       // ---- Mouse influence ----
       if (mInf > 0) {
@@ -277,8 +281,6 @@ export class ParticleSystem {
 
       // ---- Seek target (logo convergence) ----
       if (seekStr > 0.01) {
-        const i4 = i * 4;
-        const tw = targetArray[i4 + 3]; // weight
         if (tw > 0.001) {
           const tx = targetArray[i4];
           const ty = targetArray[i4 + 1];
