@@ -34,8 +34,8 @@
 - [x] **8. Tagline particle density is likely too low to read** ✅ Fixed in `5683718`
   `TAGLINE_POINT_COUNT` increased from 5,000 to 8,000 (~154 particles/char). Combined phase floor now 16K (8K text + 8K tagline).
 
-- [ ] **9. No loading state — cold void on entry**
-  Engine init (GPU detection, renderer init, shader compile, SVG fetch, point cloud generation) takes 1-2 seconds. During this, the user stares at pitch-black with zero feedback. No shimmer, no hint that something is coming. Dead air on a first-impression site.
+- [x] **9. No loading state — cold void on entry** ✅ Fixed in `51a7415`
+  CSS-only cosmic shimmer pulse on `.hero-section::before` — radial gradient centered at logo formation point, breathing at 2.5s cycle. Fades out via `data-engine-ready` attribute when particles start rendering. Reduced-motion: static glow.
 
 - [ ] **10. Edge glow is decorative but static**
   `hero-edge-glow` is a CSS radial gradient that fades in and sits. It doesn't breathe, react to particles, or shift with scroll. Undercooked relative to the particle system's craft.
