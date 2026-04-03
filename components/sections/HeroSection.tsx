@@ -446,8 +446,6 @@ export default function HeroSection() {
       <div ref={edgeGlowRef} className="hero-edge-glow" />
 
       <div className="hero-content">
-        <div className="hero-logo-space" aria-hidden="true" />
-
         {/* Screen reader only — visual text is formed by particles */}
         <h1 className="sr-only">THE FIXER</h1>
         <p className="sr-only">
