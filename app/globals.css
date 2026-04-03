@@ -133,6 +133,10 @@ body {
   .hero-edge-glow {
     transition: none;
   }
+
+  .cosmos-canvas {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */

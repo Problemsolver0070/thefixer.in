@@ -211,6 +211,42 @@ export default function HeroSection() {
 
       const engine = engineRef.current;
 
+      // ---- Reduced motion: instant static formation, no animation ----
+      const prefersReducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
+
+      if (prefersReducedMotion) {
+        setTargetsForPhase('combined');
+        engine.particles.teleportToTargets();
+        engine.particles.setSeekStrength(1);
+        engine.particles.setDriftSpeed(0);
+        engine.particles.setLogoGlow(0.08);
+
+        if (edgeGlowRef.current) edgeGlowRef.current.style.opacity = '0.7';
+        if (scrollIndicatorRef.current) scrollIndicatorRef.current.style.opacity = '1';
+
+        // Scroll dissolve still works (user-initiated, accessibility-safe)
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top top",
+          end: "bottom -20%",
+          scrub: 0.5,
+          onUpdate: (self) => {
+            const p = self.progress;
+            engine.particles.setSeekStrength(1 - p);
+            engine.particles.setLogoGlow(Math.max(0, 0.08 * (1 - p * 2)));
+          },
+          onLeave: () => {
+            engine.particles.setSeekStrength(0);
+            engine.particles.setLogoGlow(0);
+          },
+        });
+
+        return;
+      }
+
+      // ---- Normal animation path (unchanged below) ----
       const seekProxy = { value: 0 };
       const glowProxy = { value: 0 };
 
