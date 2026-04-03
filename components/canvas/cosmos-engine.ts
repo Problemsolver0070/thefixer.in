@@ -254,7 +254,7 @@ export class CosmosEngine {
   /*  Mouse interaction                                               */
   /* ---------------------------------------------------------------- */
 
-  setMousePosition(clientX: number, clientY: number): void {
+  setMousePosition(clientX: number, clientY: number, influence = 1.0): void {
     if (!this.camera) return;
 
     const ndcX = (clientX / this.width) * 2 - 1;
@@ -267,7 +267,7 @@ export class CosmosEngine {
     const worldX = ndcX * halfWidth;
     const worldY = ndcY * halfHeight;
 
-    this.particleSystem.setMousePosition(worldX, worldY, 1.0);
+    this.particleSystem.setMousePosition(worldX, worldY, influence);
   }
 
   clearMouseInfluence(): void {

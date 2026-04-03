@@ -52,16 +52,76 @@ export default function CosmosCanvas() {
     engineRef.current?.clearMouseInfluence();
   }, []);
 
-  /* ---- Touch handlers (finger attracts particles like mouse) ---- */
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    // Use first touch point — particle attraction follows finger
+  /* ---- Touch handlers: hold → gravitational well, drag → velocity wake ---- */
+  const touchStateRef = useRef({
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    prevX: 0,
+    prevY: 0,
+    prevTime: 0,
+    holdTimer: 0 as ReturnType<typeof setInterval> | 0,
+  });
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
     const touch = e.touches[0];
-    if (touch) {
-      engineRef.current?.setMousePosition(touch.clientX, touch.clientY);
-    }
+    if (!touch) return;
+    const now = performance.now();
+    const state = touchStateRef.current;
+    state.startX = touch.clientX;
+    state.startY = touch.clientY;
+    state.startTime = now;
+    state.prevX = touch.clientX;
+    state.prevY = touch.clientY;
+    state.prevTime = now;
+
+    engineRef.current?.setMousePosition(touch.clientX, touch.clientY, 1.0);
+
+    // Hold detection — ramp influence while finger stays still
+    if (state.holdTimer) clearInterval(state.holdTimer);
+    state.holdTimer = setInterval(() => {
+      const dx = state.prevX - state.startX;
+      const dy = state.prevY - state.startY;
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        const heldMs = performance.now() - state.startTime;
+        if (heldMs > 300) {
+          const holdStrength = Math.min((heldMs - 300) / 2000, 1.0);
+          engineRef.current?.setMousePosition(
+            state.prevX,
+            state.prevY,
+            1.0 + holdStrength * 2.0,
+          );
+        }
+      }
+    }, 50);
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const state = touchStateRef.current;
+    const now = performance.now();
+    const dt = Math.max(now - state.prevTime, 1);
+    const dx = touch.clientX - state.prevX;
+    const dy = touch.clientY - state.prevY;
+    const velocity = (Math.sqrt(dx * dx + dy * dy) / dt) * 1000;
+
+    // Faster drag → stronger particle wake (1.0 → 2.5)
+    const influence = 1.0 + Math.min(velocity / 800, 1.0) * 1.5;
+    engineRef.current?.setMousePosition(touch.clientX, touch.clientY, influence);
+
+    state.prevX = touch.clientX;
+    state.prevY = touch.clientY;
+    state.prevTime = now;
   }, []);
 
   const handleTouchEnd = useCallback(() => {
+    const state = touchStateRef.current;
+    if (state.holdTimer) {
+      clearInterval(state.holdTimer);
+      state.holdTimer = 0;
+    }
     engineRef.current?.clearMouseInfluence();
   }, []);
 
@@ -119,7 +179,8 @@ export default function CosmosCanvas() {
         window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
         window.addEventListener("resize", handleResize, { passive: true });
 
-        // Touch interaction — finger attracts particles like mouse cursor
+        // Touch interaction — hold for gravitational well, drag for velocity wake
+        window.addEventListener("touchstart", handleTouchStart, { passive: true });
         window.addEventListener("touchmove", handleTouchMove, { passive: true });
         window.addEventListener("touchend", handleTouchEnd, { passive: true });
         window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
@@ -139,9 +200,13 @@ export default function CosmosCanvas() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("touchcancel", handleTouchEnd);
+      if (touchStateRef.current.holdTimer) {
+        clearInterval(touchStateRef.current.holdTimer);
+      }
       window.removeEventListener("deviceorientation", handleOrientation);
       window.removeEventListener("touchstart", requestGyro);
 
@@ -149,7 +214,7 @@ export default function CosmosCanvas() {
       engine.dispose();
       engineRef.current = null;
     };
-  }, [handleMouseMove, handleMouseLeave, handleTouchMove, handleTouchEnd, handleOrientation, handleResize]);
+  }, [handleMouseMove, handleMouseLeave, handleTouchStart, handleTouchMove, handleTouchEnd, handleOrientation, handleResize]);
 
   return (
     <canvas
