@@ -292,6 +292,7 @@ export default function HeroSection() {
           duration: 0.8,
           ease: "power2.in",
           onUpdate: () => engine.particles.setLogoGlow(glowProxy.value),
+          onComplete: () => { navigator.vibrate?.(15); },
         },
         ">-0.3",
       );
@@ -309,7 +310,10 @@ export default function HeroSection() {
       if (textBaseRef.current) {
         // Swap targets: crosshair → text (after 1s beat)
         intro.call(
-          () => setTargetsForPhase('text'),
+          () => {
+            setTargetsForPhase('text');
+            navigator.vibrate?.([10, 30, 10]);
+          },
           [],
           ">1.0",
         );
@@ -340,7 +344,10 @@ export default function HeroSection() {
         // Swap targets: text-only → text+tagline
         // Text particles keep same positions — tagline particles converge from ambient field
         intro.call(
-          () => setTargetsForPhase('combined'),
+          () => {
+            setTargetsForPhase('combined');
+            navigator.vibrate?.([8, 40, 8]);
+          },
           [],
           ">1.0",
         );
