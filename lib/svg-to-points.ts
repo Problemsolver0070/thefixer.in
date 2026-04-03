@@ -95,7 +95,7 @@ export async function svgToPointCloud(
       const i3 = pointIdx * 3;
       positions[i3] = (pt.x - vbCenterX) * scale;
       positions[i3 + 1] = -(pt.y - vbCenterY) * scale;
-      positions[i3 + 2] = 0; // Logo lives on the z=0 plane
+      positions[i3 + 2] = (Math.random() - 0.5) * 0.6; // ±0.3 z-jitter for depth
 
       pointIdx++;
     }

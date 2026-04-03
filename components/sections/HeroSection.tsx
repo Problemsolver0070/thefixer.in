@@ -80,7 +80,7 @@ function rescaleCloud(
     const i3 = i * 3;
     out[i3] = base.positions[i3] * ratio;
     out[i3 + 1] = base.positions[i3 + 1] * ratio + yOffset;
-    out[i3 + 2] = base.positions[i3 + 2]; // z stays 0
+    out[i3 + 2] = base.positions[i3 + 2]; // z: preserve base jitter
   }
   return out;
 }
