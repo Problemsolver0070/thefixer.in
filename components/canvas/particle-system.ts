@@ -68,6 +68,7 @@ export class ParticleSystem {
   private _scrollProgress = 0;
   private _seekStrength = 0;
   private _logoGlow = 0;
+  private _driftSpeed: number = PARTICLE_CONFIG.driftSpeed;
 
   private disposed = false;
 
@@ -163,7 +164,7 @@ export class ParticleSystem {
     const pos = this.posBuffer.array as Float32Array;
     const vel = this.velBuffer.array as Float32Array;
     const count = this._activeCount;
-    const driftSpeed = PARTICLE_CONFIG.driftSpeed;
+    const driftSpeed = this._driftSpeed;
     const boundaryRadius = 26;
     const maxSpeed = 4.0;
     const t = time * 0.15;
@@ -364,6 +365,31 @@ export class ParticleSystem {
 
   setNoBloom(): void {
     uNoBloom.value = 1.0;
+  }
+
+  setDriftSpeed(speed: number): void {
+    this._driftSpeed = speed;
+    uDriftSpeed.value = speed;
+  }
+
+  teleportToTargets(): void {
+    const pos = this.posBuffer.array as Float32Array;
+    const vel = this.velBuffer.array as Float32Array;
+    const target = this.targetBuffer.array as Float32Array;
+    for (let i = 0; i < this.maxParticles; i++) {
+      const i3 = i * 3;
+      const i4 = i * 4;
+      if (target[i4 + 3] > 0) {
+        pos[i3] = target[i4];
+        pos[i3 + 1] = target[i4 + 1];
+        pos[i3 + 2] = target[i4 + 2];
+      }
+      vel[i3] = 0;
+      vel[i3 + 1] = 0;
+      vel[i3 + 2] = 0;
+    }
+    this.posBuffer.needsUpdate = true;
+    this.velBuffer.needsUpdate = true;
   }
 
   update(time: number, deltaTime: number): void {
