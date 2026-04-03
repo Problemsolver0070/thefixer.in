@@ -47,11 +47,14 @@ body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  contain: strict;
+  will-change: contents;
 }
 
 .content-layer {
   position: relative;
   z-index: 1;
+  contain: layout style;
 }
 
 .section-block {
