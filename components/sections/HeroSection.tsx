@@ -236,10 +236,14 @@ export default function HeroSection() {
             const p = self.progress;
             engine.particles.setSeekStrength(1 - p);
             engine.particles.setLogoGlow(Math.max(0, 0.08 * (1 - p * 2)));
+            if (edgeGlowRef.current) {
+              edgeGlowRef.current.style.opacity = String(0.7 * (1 - p));
+            }
           },
           onLeave: () => {
             engine.particles.setSeekStrength(0);
             engine.particles.setLogoGlow(0);
+            if (edgeGlowRef.current) edgeGlowRef.current.style.opacity = '0';
           },
         });
 
@@ -391,6 +395,9 @@ export default function HeroSection() {
 
           engine.particles.setSeekStrength(1 - p);
           engine.particles.setLogoGlow(Math.max(0, 0.08 * (1 - p * 2)));
+          if (edgeGlowRef.current) {
+            edgeGlowRef.current.style.opacity = String(0.7 * (1 - p));
+          }
         },
         onLeave: () => {
           if (!introComplete) {
@@ -399,6 +406,7 @@ export default function HeroSection() {
           }
           engine.particles.setSeekStrength(0);
           engine.particles.setLogoGlow(0);
+          if (edgeGlowRef.current) edgeGlowRef.current.style.opacity = '0';
         },
       });
     },
