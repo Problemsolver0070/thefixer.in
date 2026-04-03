@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useGSAP } from "@/lib/gsap-setup";
+import { gsap, useGSAP } from "@/lib/gsap-setup";
 import { ScrollTrigger } from "@/lib/gsap-setup";
 
 interface SectionBlockProps {
@@ -28,6 +28,23 @@ export default function SectionBlock({
   useGSAP(
     () => {
       if (!sectionRef.current) return;
+
+      // Scroll-triggered entry animation — fade up from below
+      gsap.fromTo(
+        sectionRef.current,
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 85%",
+            toggleActions: "play none none none",
+          },
+        },
+      );
 
       ScrollTrigger.create({
         trigger: sectionRef.current,
