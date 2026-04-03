@@ -40,8 +40,8 @@
 - [x] **10. Edge glow is decorative but static** ✅ Fixed in `6d771c5`
   CSS breathing animation (`edge-breathe` 5s cycle via scale/brightness). Scroll-driven opacity fade in both normal and reduced-motion paths. Disabled animation under `prefers-reduced-motion`.
 
-- [ ] **11. No particle trails**
-  The spec mentions "particle glow and trails." Currently particles are isolated points with no history. During convergence, trails would dramatically amplify the sense of velocity and purpose.
+- [x] **11. No particle trails** ✅ Fixed in `494ca41`
+  Velocity-based trail effect in material shader. Fast particles scale 1.5x larger and get alpha boost. Visual streak during convergence, fades as particles settle. Vel buffer uploaded each CPU frame.
 
 - [ ] **12. Default cursor**
   The standard arrow cursor breaks immersion. A custom cursor (subtle dot or crosshair matching the brand mark) would maintain atmosphere. Desktop only.
