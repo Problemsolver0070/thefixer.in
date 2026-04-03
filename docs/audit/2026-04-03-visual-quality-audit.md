@@ -91,11 +91,11 @@
 
 ## E. Architecture Observations
 
-- [ ] **24. `cpuAnimate` trig math is heavy per-frame**
-  6 `Math.sin/cos` + 3 `Math.sqrt` per particle per frame. At 30K × 60fps = 1.8M sin/cos calls/second on main thread. Viable but leaves little headroom. Lookup tables or batching would help.
+- [x] **24. `cpuAnimate` trig math is heavy per-frame** ✅ Fixed in `ad7ce81`
+  4096-entry sin/cos LUT replaces 6 `Math.sin/cos` per particle in curl-noise loop. ~10x faster trig at ±0.001 precision. `Math.sqrt` retained (3 calls, unavoidable for distance).
 
-- [ ] **25. Position buffer uploaded fully every frame**
-  `posBuffer.needsUpdate = true` every frame uploads ~360KB (30K particles) to GPU. Standard approach but could optimize with partial updates.
+- [x] **25. Position buffer uploaded fully every frame** ✅ Acknowledged
+  Standard Three.js approach. `StorageInstancedBufferAttribute` doesn't support `updateRange` in WebGPU path. Partial updates would require custom buffer management — deferred as low-ROI optimization.
 
-- [ ] **26. `textToPointCloud` sampling is non-deterministic**
-  Fisher-Yates with `Math.random()` produces different distributions per call. If called again on resize, particles scatter and re-settle rather than smoothly adapting. Should seed the RNG or cache the result.
+- [x] **26. `textToPointCloud` sampling is non-deterministic** ✅ Already mitigated
+  Base clouds generated once in `onEngineReady`, cached in refs. Resize calls `rescaleCloud()` (deterministic ratio math) — never re-samples. Different distributions only on component remount, which is acceptable.
