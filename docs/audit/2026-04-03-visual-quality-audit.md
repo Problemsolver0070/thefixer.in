@@ -37,8 +37,8 @@
 - [x] **9. No loading state — cold void on entry** ✅ Fixed in `51a7415`
   CSS-only cosmic shimmer pulse on `.hero-section::before` — radial gradient centered at logo formation point, breathing at 2.5s cycle. Fades out via `data-engine-ready` attribute when particles start rendering. Reduced-motion: static glow.
 
-- [ ] **10. Edge glow is decorative but static**
-  `hero-edge-glow` is a CSS radial gradient that fades in and sits. It doesn't breathe, react to particles, or shift with scroll. Undercooked relative to the particle system's craft.
+- [x] **10. Edge glow is decorative but static** ✅ Fixed in `6d771c5`
+  CSS breathing animation (`edge-breathe` 5s cycle via scale/brightness). Scroll-driven opacity fade in both normal and reduced-motion paths. Disabled animation under `prefers-reduced-motion`.
 
 - [ ] **11. No particle trails**
   The spec mentions "particle glow and trails." Currently particles are isolated points with no history. During convergence, trails would dramatically amplify the sense of velocity and purpose.
