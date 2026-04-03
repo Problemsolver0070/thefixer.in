@@ -62,8 +62,8 @@
 - [x] **16. Gyroscope mapping is a rough approximation** ✅ Fixed in `859d90b`
   Adaptive centering — first orientation reading becomes baseline. Baseline drifts 1% per reading to follow posture changes. Works at any holding angle.
 
-- [ ] **17. `hero-logo-space` sizing mismatch**
-  `globals.css:95` — `min(200px, 50vw)` is a fixed spacer. But actual particle text spans a viewport-responsive width from `getResponsiveDimensions()`. Spacer doesn't correspond to where particles are in 3D space. On some devices, elements may overlap or drift from the visual particle formation.
+- [x] **17. `hero-logo-space` sizing mismatch** ✅ Fixed in `b4d0bf0`
+  Removed dead spacer entirely. No visible elements depended on it — all hero text is sr-only (absolutely positioned). CSS rule also removed.
 
 - [ ] **18. No haptic feedback**
   For a premium mobile experience, subtle haptic pulses (one when particles lock into logo, another for text formation) would add a physical dimension. iOS and Android both support this.
