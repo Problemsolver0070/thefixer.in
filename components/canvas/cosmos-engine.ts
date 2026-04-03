@@ -125,11 +125,15 @@ export class CosmosEngine {
     }
 
     // ---- Set initial particle count ----
-    const initialCount = this.gpuTier.tier === "high"
+    // CPU fallback: cap at 30K — curl noise on main thread can't sustain more at 60fps.
+    // GPU compute: use full tier-based budget.
+    const CPU_FALLBACK_CAP = 30_000;
+    const tierCount = this.gpuTier.tier === "high"
       ? PARTICLE_CONFIG.desktopBaseline
       : this.gpuTier.tier === "medium"
         ? Math.min(PARTICLE_CONFIG.desktopBaseline, this.gpuTier.maxParticles)
         : Math.min(PARTICLE_CONFIG.mobileBaseline, this.gpuTier.maxParticles);
+    const initialCount = this.useGPUCompute ? tierCount : Math.min(CPU_FALLBACK_CAP, tierCount);
     this.particleSystem.setParticleCount(initialCount);
 
     // ---- Render Pipeline with Bloom ----
@@ -149,15 +153,26 @@ export class CosmosEngine {
     });
 
     // ---- Performance Monitor ----
-    const perfConfig: PerformanceMonitorConfig = {
-      targetFps: PARTICLE_CONFIG.targetFps,
-      minFps: PARTICLE_CONFIG.minFps,
-      adjustmentInterval: PARTICLE_CONFIG.adjustmentInterval,
-      initialParticles: initialCount,
-      minParticles: 10_000,
-      maxParticles: maxParticles,
-      stepSize: Math.floor(maxParticles * 0.05),
-    };
+    const perfConfig: PerformanceMonitorConfig = this.useGPUCompute
+      ? {
+          targetFps: PARTICLE_CONFIG.targetFps,
+          minFps: PARTICLE_CONFIG.minFps,
+          adjustmentInterval: PARTICLE_CONFIG.adjustmentInterval,
+          initialParticles: initialCount,
+          minParticles: 10_000,
+          maxParticles: maxParticles,
+          stepSize: Math.floor(maxParticles * 0.05),
+        }
+      : {
+          // CPU fallback: tight bounds around the 30K working set
+          targetFps: PARTICLE_CONFIG.targetFps,
+          minFps: PARTICLE_CONFIG.minFps,
+          adjustmentInterval: PARTICLE_CONFIG.adjustmentInterval,
+          initialParticles: initialCount,
+          minParticles: CPU_FALLBACK_CAP,    // never drop below 30K — text needs 28.5K
+          maxParticles: Math.min(50_000, maxParticles), // ceiling for CPU
+          stepSize: 2_500,
+        };
     this.performanceMonitor = new PerformanceMonitor(perfConfig);
 
     // ---- Scroll subscription ----
