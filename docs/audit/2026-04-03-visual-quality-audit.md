@@ -65,8 +65,8 @@
 - [x] **17. `hero-logo-space` sizing mismatch** ✅ Fixed in `b4d0bf0`
   Removed dead spacer entirely. No visible elements depended on it — all hero text is sr-only (absolutely positioned). CSS rule also removed.
 
-- [ ] **18. No haptic feedback**
-  For a premium mobile experience, subtle haptic pulses (one when particles lock into logo, another for text formation) would add a physical dimension. iOS and Android both support this.
+- [x] **18. No haptic feedback** ✅ Fixed in `7af2229`
+  `navigator.vibrate()` at 3 formation milestones: logo peak (15ms), text swap (10-30-10ms), tagline swap (8-40-8ms). Android only — optional chaining no-ops on iOS/desktop.
 
 ---
 
