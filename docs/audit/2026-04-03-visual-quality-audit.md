@@ -72,11 +72,11 @@
 
 ## D. Polish & Craft Details
 
-- [ ] **19. No favicon from the brand mark**
-  `public/logo/thefixer-mark.svg` exists but the default Next.js `favicon.ico` is still in place. The crosshair mark should be the favicon.
+- [x] **19. No favicon from the brand mark** ✅ Fixed in `c4ea38b`
+  SVG favicon at `app/icon.svg` — crosshair brand mark with gold arc + warm crosshairs. Next.js auto-serves as favicon.
 
-- [ ] **20. Metadata is minimal**
-  Missing: Open Graph tags (og:image, og:title, og:description), Twitter card, theme-color meta, Apple touch icon. Enterprise clients share links — the preview card matters.
+- [x] **20. Metadata is minimal** ✅ Fixed in `c4ea38b`
+  Added Open Graph (title, description, url, siteName), Twitter card (summary_large_image), theme-color (#1a1625), Apple web app meta, metadataBase.
 
 - [ ] **21. No `contain` or compositing hints**
   `.cosmos-canvas` and `.content-layer` lack `contain: layout style paint` or `will-change` properties. Explicit hints help the GPU compositor, especially on mobile.
