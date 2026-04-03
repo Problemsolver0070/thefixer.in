@@ -96,6 +96,24 @@ body {
   opacity: 0;
 }
 
+/* Soft gradient at hero bottom — visual bridge to content */
+.hero-section::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20vh;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.13 0.03 265 / 0) 0%,
+    oklch(0.13 0.03 265 / 0.6) 60%,
+    oklch(0.13 0.03 265 / 0.9) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
 @keyframes cosmic-pulse {
   0%, 100% {
     opacity: 0.4;
