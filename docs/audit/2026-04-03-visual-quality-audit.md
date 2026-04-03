@@ -18,8 +18,8 @@
 - [x] **4. Font race condition in `textToPointCloud`** ✅ Fixed in `8215df5`
   `await document.fonts.ready` added before text point cloud generation. Inter is guaranteed loaded before canvas rendering.
 
-- [ ] **5. Bloom absence changes visual tuning**
-  `cosmos-engine.ts:175-180` — if `RenderPipeline` construction fails (common on some WebGL2 configs), the engine silently drops bloom and falls back to direct rendering. But the particle material's alpha values (0.008-0.2, additive blending) were tuned assuming bloom amplifies brightness. Without bloom, the particle field looks dimmer and flatter. No compensation.
+- [x] **5. Bloom absence changes visual tuning** ✅ Fixed in `095eed4`
+  `uNoBloom` uniform triggers 2.5x alpha boost and raised clamp ceilings (0.2→0.5, 0.35→0.7) when bloom fails. Engine detects absence at init and runtime, notifies material via `setNoBloom()`.
 
 - [ ] **6. `prefers-reduced-motion` is nearly ignored**
   CSS handles the scroll indicator animation. But the particle system — hundreds of thousands of moving particles — runs identically. The spec says "disables particle animations, provides static alternatives with the same content." Someone with vestibular disorders gets the full particle storm.
