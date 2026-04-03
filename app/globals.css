@@ -111,6 +111,18 @@ body {
   );
   pointer-events: none;
   opacity: 0;
+  animation: edge-breathe 5s ease-in-out infinite;
+}
+
+@keyframes edge-breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(0.85);
+  }
+  50% {
+    transform: scale(1.03);
+    filter: brightness(1.15);
+  }
 }
 
 .hero-content {
@@ -164,6 +176,7 @@ body {
 
   .hero-edge-glow {
     transition: none;
+    animation: none;
   }
 
   .cosmos-canvas {
