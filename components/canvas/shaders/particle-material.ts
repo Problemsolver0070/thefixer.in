@@ -65,16 +65,21 @@ const goldBright = new Color(COLORS.goldBright);
 
 export function createParticleMaterial(
   posBuffer: StorageInstancedBufferAttribute,
+  velBuffer: StorageInstancedBufferAttribute,
 ) {
   const material = new SpriteNodeMaterial();
   material.transparent = true;
   material.depthWrite = false;
   material.blending = AdditiveBlending;
 
-  // Create a storage node wrapping the same buffer the compute writes to.
-  // .toAttribute() makes it readable as a vertex attribute in WebGL2.
+  // Create storage nodes wrapping the same buffers the compute/CPU writes to.
+  // .toAttribute() makes them readable as vertex attributes in WebGL2.
   const posStorage = storage(posBuffer, "vec3", posBuffer.count);
   material.positionNode = posStorage.toAttribute();
+
+  const velStorage = storage(velBuffer, "vec3", velBuffer.count);
+  const vel = velStorage.element(instanceIndex);
+  const speed = clamp(length(vel), float(0), float(4.0));
 
   // Per-particle deterministic randomness
   const particleHash = hash(instanceIndex);
@@ -132,12 +137,17 @@ export function createParticleMaterial(
     float(1.0),
     mul(sin(add(uMatTime.mul(1.2), particleHash.mul(3.14))), float(0.15)),
   );
-  const particleScale = mul(uMatParticleSize, scaleBreath);
+  // Velocity-based size boost — fast particles stretch larger (trail effect)
+  const velocityScale = add(float(1.0), mul(speed.div(float(4.0)), float(0.5)));
+  const particleScale = mul(uMatParticleSize, scaleBreath, velocityScale);
+
+  // Velocity-based alpha boost — fast particles glow brighter (trail luminance)
+  const velocityAlpha = mul(speed.div(float(4.0)), float(0.05));
 
   // Boost alpha during logo glow for brighter convergence
   const maxGlowAlpha = mix(float(0.35), float(0.7), uNoBloom);
   const glowAlpha = clamp(
-    add(finalAlpha, uMatLogoGlow.mul(float(0.15))),
+    add(finalAlpha, uMatLogoGlow.mul(float(0.15)), velocityAlpha),
     float(0.008),
     maxGlowAlpha,
   );
