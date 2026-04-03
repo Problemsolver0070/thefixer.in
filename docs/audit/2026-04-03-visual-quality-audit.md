@@ -49,8 +49,8 @@
 - [x] **13. Scroll indicator is generic** ✅ Fixed in `04286e7`
   Flowing stream animation via `stroke-dasharray` — dashes stream downward simulating particle flow. Ethereal blue `drop-shadow` glow. Replaces basic opacity pulse.
 
-- [ ] **14. No transition between hero and content**
-  Hero dissolve works, but then you hit blank placeholders. The spec describes a particle river guiding downward, parallax depth layers, color temperature shift. Currently the cinematic momentum crashes into nothing. Even before full section content, the transition needs work.
+- [x] **14. No transition between hero and content** ✅ Fixed in `9091bc4`
+  Hero bottom gradient (::after) bridges into content. SectionBlock fade-up entry animation via GSAP ScrollTrigger. Full particle river deferred to content build phase.
 
 ---
 
