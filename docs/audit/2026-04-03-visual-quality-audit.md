@@ -81,11 +81,11 @@
 - [x] **21. No `contain` or compositing hints** ✅ Fixed in `4cb8498`
   `.cosmos-canvas`: `contain: strict` + `will-change: contents`. `.content-layer`: `contain: layout style`. Isolates compositing layers for GPU.
 
-- [ ] **22. `CosmosBackground` wrapper is thin**
-  Just a dynamic import wrapper. Could handle: fallback UI while engine loads, error boundary if WebGL2 fails, static image fallback for devices with no GPU.
+- [x] **22. `CosmosBackground` wrapper is thin** ✅ Fixed in `ffd78cd`
+  React error boundary wraps CosmosCanvas — catches runtime WebGL crashes. Static fallback: cosmic gradient + faint brand mark SVG.
 
-- [ ] **23. No graceful degradation for very old devices**
-  If both WebGPU and WebGL2 fail, the user sees a black void forever. No fallback content, static image, or message.
+- [x] **23. No graceful degradation for very old devices** ✅ Fixed in `ffd78cd`
+  CosmosCanvas catches init failures and renders branded fallback instead of black void. Error boundary catches runtime crashes too.
 
 ---
 
