@@ -117,7 +117,7 @@ export function textToPointCloud(
     const i3 = i * 3;
     positions[i3] = (px - centerX) * scale;       // x: centered
     positions[i3 + 1] = -(py - centerY) * scale;  // y: negate (canvas Y-down → Three.js Y-up)
-    positions[i3 + 2] = 0;                         // z: text on z=0 plane
+    positions[i3 + 2] = (Math.random() - 0.5) * 0.6; // ±0.3 z-jitter for depth
   }
 
   return { positions, count: actualCount };
