@@ -51,6 +51,25 @@ body {
   will-change: contents;
 }
 
+/* Static fallback when WebGL fails — brand mark on cosmic gradient */
+.cosmos-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    circle at 50% 45%,
+    oklch(0.20 0.04 265) 0%,
+    oklch(0.13 0.03 265) 60%
+  );
+}
+
+.cosmos-fallback-mark {
+  width: min(200px, 40vw);
+  height: auto;
+  opacity: 0.15;
+  filter: brightness(2);
+}
+
 .content-layer {
   position: relative;
   z-index: 1;
