@@ -433,6 +433,7 @@ export default function HeroSection() {
       id="hero"
       className="hero-section"
       data-section-index={0}
+      data-engine-ready={ready ? "" : undefined}
     >
       <div ref={edgeGlowRef} className="hero-edge-glow" />
 

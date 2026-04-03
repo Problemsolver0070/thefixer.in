@@ -68,6 +68,38 @@ body {
   overflow: hidden;
 }
 
+/* Loading shimmer — visible from first SSR frame, fades when engine starts */
+.hero-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    circle at 50% 45%,
+    oklch(0.30 0.04 265 / 0.5) 0%,
+    oklch(0.18 0.03 265 / 0.15) 35%,
+    oklch(0.13 0.03 265 / 0) 65%
+  );
+  animation: cosmic-pulse 2.5s ease-in-out infinite;
+  transition: opacity 1s ease-out;
+  pointer-events: none;
+}
+
+.hero-section[data-engine-ready]::before {
+  opacity: 0;
+}
+
+@keyframes cosmic-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
 .hero-edge-glow {
   position: absolute;
   inset: 0;
@@ -136,6 +168,11 @@ body {
 
   .cosmos-canvas {
     animation: none;
+  }
+
+  .hero-section::before {
+    animation: none;
+    opacity: 0.6;
   }
 }
 
