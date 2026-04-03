@@ -43,8 +43,8 @@
 - [x] **11. No particle trails** ✅ Fixed in `494ca41`
   Velocity-based trail effect in material shader. Fast particles scale 1.5x larger and get alpha boost. Visual streak during convergence, fades as particles settle. Vel buffer uploaded each CPU frame.
 
-- [ ] **12. Default cursor**
-  The standard arrow cursor breaks immersion. A custom cursor (subtle dot or crosshair matching the brand mark) would maintain atmosphere. Desktop only.
+- [x] **12. Default cursor** ✅ Fixed in `04fd6cb`
+  SVG crosshair cursor via data URI — center dot + cross lines in celestial-dim color. Desktop only via `@media (hover: hover) and (pointer: fine)`. Fallback: built-in `crosshair`.
 
 - [ ] **13. Scroll indicator is generic**
   The down-arrow SVG with pulse is functional but forgettable. Could be more integrated with the particle system — particles forming the arrow, or a subtle particle stream suggesting downward motion.
