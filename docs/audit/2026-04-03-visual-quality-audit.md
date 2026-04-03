@@ -46,8 +46,8 @@
 - [x] **12. Default cursor** ✅ Fixed in `04fd6cb`
   SVG crosshair cursor via data URI — center dot + cross lines in celestial-dim color. Desktop only via `@media (hover: hover) and (pointer: fine)`. Fallback: built-in `crosshair`.
 
-- [ ] **13. Scroll indicator is generic**
-  The down-arrow SVG with pulse is functional but forgettable. Could be more integrated with the particle system — particles forming the arrow, or a subtle particle stream suggesting downward motion.
+- [x] **13. Scroll indicator is generic** ✅ Fixed in `04286e7`
+  Flowing stream animation via `stroke-dasharray` — dashes stream downward simulating particle flow. Ethereal blue `drop-shadow` glow. Replaces basic opacity pulse.
 
 - [ ] **14. No transition between hero and content**
   Hero dissolve works, but then you hit blank placeholders. The spec describes a particle river guiding downward, parallax depth layers, color temperature shift. Currently the cinematic momentum crashes into nothing. Even before full section content, the transition needs work.
