@@ -160,12 +160,6 @@ body {
   pointer-events: none;
 }
 
-.hero-logo-space {
-  width: min(200px, 50vw);
-  height: min(200px, 50vw);
-  /* No visual — particles form the logo in 3D space at this approximate position */
-}
-
 .hero-scroll-indicator {
   position: absolute;
   bottom: max(2rem, env(safe-area-inset-bottom, 0px));
