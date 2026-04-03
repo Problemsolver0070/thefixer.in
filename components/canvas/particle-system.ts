@@ -106,8 +106,8 @@ export class ParticleSystem {
     );
     this.computeUpdate = computeUpdate;
 
-    // ---- Build material (creates its own storage node for same buffer) ----
-    this.material = createParticleMaterial(this.posBuffer);
+    // ---- Build material (creates storage nodes for pos + vel buffers) ----
+    this.material = createParticleMaterial(this.posBuffer, this.velBuffer);
 
     // ---- Build renderable sprite ----
     this.group = new Group();
@@ -285,8 +285,9 @@ export class ParticleSystem {
       pos[i3 + 2] += vel[i3 + 2] * deltaTime;
     }
 
-    // Tell Three.js to re-upload the buffer to GPU
+    // Tell Three.js to re-upload buffers to GPU
     this.posBuffer.needsUpdate = true;
+    this.velBuffer.needsUpdate = true;
   }
 
   /* ---------------------------------------------------------------- */
