@@ -56,8 +56,8 @@
 
 ## C. Mobile-Specific Concerns
 
-- [ ] **15. Touch interaction is basic**
-  The spec defines: touch-hold for gravitational well, touch-drag for cosmic wake, pinch for depth zoom. Currently `touchmove` just maps finger position to particle attraction (same as mouse). All three spec interactions are missing.
+- [x] **15. Touch interaction is basic** ✅ Fixed in `c6c52b4`
+  Touch-hold (>300ms) creates gravitational well with ramping influence (1→3x over 2s). Touch-drag velocity scales influence (up to 2.5x) for cosmic wake. Pinch-zoom deferred (camera manipulation risk).
 
 - [ ] **16. Gyroscope mapping is a rough approximation**
   `CosmosCanvas.tsx:74-75` — beta offset of -45 assumes phone held at ~45°. Breaks when user is lying down or holding at steep angle. Needs calibration on first read or adaptive centering.
