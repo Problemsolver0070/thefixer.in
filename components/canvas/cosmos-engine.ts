@@ -54,6 +54,7 @@ export class CosmosEngine {
 
   /** Whether GPU compute is available (WebGPU) or we use CPU fallback */
   private useGPUCompute = false;
+  private _hasBloom = false;
 
   private unsubscribeScroll: (() => void) | null = null;
 
@@ -133,6 +134,11 @@ export class CosmosEngine {
 
     // ---- Render Pipeline with Bloom ----
     this.setupRenderPipeline();
+
+    this._hasBloom = !!this.renderPipeline;
+    if (!this._hasBloom) {
+      this.particleSystem.setNoBloom();
+    }
 
     console.log("[CosmosEngine] Initialized:", {
       gpuTier: this.gpuTier,
@@ -231,6 +237,10 @@ export class CosmosEngine {
         this.renderPipeline.render();
       } catch {
         this.renderPipeline = null;
+        if (this._hasBloom) {
+          this._hasBloom = false;
+          this.particleSystem.setNoBloom();
+        }
         this.renderer.render(this.scene, this.camera);
       }
     } else {
