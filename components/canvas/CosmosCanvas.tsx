@@ -9,7 +9,7 @@
  * - Initializes and disposes the CosmosEngine lifecycle
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { CosmosEngine } from "./cosmos-engine";
 import { setCosmosEngine } from "@/lib/cosmos-ref";
 
@@ -42,6 +42,7 @@ async function requestOrientationPermission(): Promise<boolean> {
 export default function CosmosCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<CosmosEngine | null>(null);
+  const [failed, setFailed] = useState(false);
 
   /* ---- Mouse handler (stable ref) ---- */
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -203,6 +204,7 @@ export default function CosmosCanvas() {
         window.addEventListener("touchstart", requestGyro, { once: true });
       } catch (err) {
         console.error("[CosmosCanvas] Failed to initialise engine:", err);
+        setFailed(true);
       }
     };
 
@@ -229,6 +231,19 @@ export default function CosmosCanvas() {
       engineRef.current = null;
     };
   }, [handleMouseMove, handleMouseLeave, handleTouchStart, handleTouchMove, handleTouchEnd, handleOrientation, handleResize]);
+
+  if (failed) {
+    return (
+      <div className="cosmos-canvas cosmos-fallback" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo/thefixer-mark.svg"
+          alt=""
+          className="cosmos-fallback-mark"
+        />
+      </div>
+    );
+  }
 
   return (
     <canvas
