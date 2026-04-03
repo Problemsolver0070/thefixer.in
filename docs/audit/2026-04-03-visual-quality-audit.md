@@ -59,8 +59,8 @@
 - [x] **15. Touch interaction is basic** ✅ Fixed in `c6c52b4`
   Touch-hold (>300ms) creates gravitational well with ramping influence (1→3x over 2s). Touch-drag velocity scales influence (up to 2.5x) for cosmic wake. Pinch-zoom deferred (camera manipulation risk).
 
-- [ ] **16. Gyroscope mapping is a rough approximation**
-  `CosmosCanvas.tsx:74-75` — beta offset of -45 assumes phone held at ~45°. Breaks when user is lying down or holding at steep angle. Needs calibration on first read or adaptive centering.
+- [x] **16. Gyroscope mapping is a rough approximation** ✅ Fixed in `859d90b`
+  Adaptive centering — first orientation reading becomes baseline. Baseline drifts 1% per reading to follow posture changes. Works at any holding angle.
 
 - [ ] **17. `hero-logo-space` sizing mismatch**
   `globals.css:95` — `min(200px, 50vw)` is a fixed spacer. But actual particle text spans a viewport-responsive width from `getResponsiveDimensions()`. Spacer doesn't correspond to where particles are in 3D space. On some devices, elements may overlap or drift from the visual particle formation.
