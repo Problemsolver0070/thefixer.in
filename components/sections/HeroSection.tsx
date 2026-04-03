@@ -24,7 +24,7 @@ const LOGO_SVG_URL = "/logo/thefixer-mark.svg";
 /** Fixed particle counts — never change with viewport. More particles = denser text. */
 const LOGO_POINT_COUNT = 8000;
 const TEXT_POINT_COUNT = 8000;
-const TAGLINE_POINT_COUNT = 5000;
+const TAGLINE_POINT_COUNT = 8000;
 
 /** Base positions stored before Y-offset, used for deterministic rescaling. */
 interface BaseCloud {
