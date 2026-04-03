@@ -21,8 +21,8 @@
 - [x] **5. Bloom absence changes visual tuning** ✅ Fixed in `095eed4`
   `uNoBloom` uniform triggers 2.5x alpha boost and raised clamp ceilings (0.2→0.5, 0.35→0.7) when bloom fails. Engine detects absence at init and runtime, notifies material via `setNoBloom()`.
 
-- [ ] **6. `prefers-reduced-motion` is nearly ignored**
-  CSS handles the scroll indicator animation. But the particle system — hundreds of thousands of moving particles — runs identically. The spec says "disables particle animations, provides static alternatives with the same content." Someone with vestibular disorders gets the full particle storm.
+- [x] **6. `prefers-reduced-motion` is nearly ignored** ✅ Fixed in `cc63931`
+  Full reduced-motion support: instant text+tagline formation via `teleportToTargets()`, zero drift, frozen particles. Scroll dissolve preserved (user-initiated). GSAP timeline skipped entirely.
 
 ---
 
