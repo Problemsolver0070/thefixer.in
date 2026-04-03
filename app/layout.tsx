@@ -19,6 +19,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#1a1625",
 };
 
 export const metadata: Metadata = {
@@ -31,6 +32,26 @@ export const metadata: Metadata = {
     "systems design",
     "agentic AI",
   ],
+  openGraph: {
+    title: "The Fixer — AI & Software Consultancy",
+    description:
+      "You've exhausted every option. That's why you're here. Elite AI agentic solutions and software development.",
+    url: "https://thefixer.in",
+    siteName: "The Fixer",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Fixer — AI & Software Consultancy",
+    description:
+      "You've exhausted every option. That's why you're here. Elite AI agentic solutions and software development.",
+  },
+  metadataBase: new URL("https://thefixer.in"),
+  appleWebApp: {
+    title: "The Fixer",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
